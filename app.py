@@ -19,25 +19,23 @@ st.markdown("""
 <style>
     /* 1. Global Background & Font */
     .stApp {
-        background: radial-gradient(circle at 50% 10%, #1a1a1a 0%, #000000 100%);
+        background-color: #121212; /* Deep Gray */
         color: #FFFFFF;
         font-family: 'Circular', 'Helvetica Neue', Helvetica, Arial, sans-serif;
     }
     
     /* 2. Sidebar Styling */
     section[data-testid="stSidebar"] {
-        background-color: #000000;
-        border-right: 1px solid #333;
+        background-color: #000000; /* Pure Black */
+        border-right: 1px solid #282828;
     }
-    /* Force sidebar text to be white */
     section[data-testid="stSidebar"] * {
-        color: #e0e0e0 !important;
+        color: #B3B3B3 !important; /* Light Gray Text */
     }
-    /* Sidebar Selectbox */
-    section[data-testid="stSidebar"] .stSelectbox > div > div {
-        background-color: #181818;
-        color: white;
-        border: 1px solid #333;
+    section[data-testid="stSidebar"] h1, 
+    section[data-testid="stSidebar"] h2, 
+    section[data-testid="stSidebar"] h3 {
+        color: #FFFFFF !important; /* White Headers */
     }
 
     /* 3. Headers */
@@ -47,59 +45,98 @@ st.markdown("""
         letter-spacing: -0.5px;
     }
     
-    /* 4. Buttons (Modern Glow) */
+    /* 4. Circular Buttons (Green Icon) */
     .stButton > button {
-        background: linear-gradient(90deg, #1DB954 0%, #1ed760 100%);
-        color: #000000;
-        border-radius: 500px;
-        border: none;
-        padding: 12px 24px;
-        font-weight: 700;
-        font-size: 14px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(29, 185, 84, 0.3);
+        background-color: #000000; /* Solid Black Background */
+        color: #1DB954; /* Spotify Green */
+        border: 2px solid #1DB954;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        font-size: 18px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        margin: 0 auto; /* Center in column */
     }
     .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(29, 185, 84, 0.5);
+        background-color: #1DB954;
         color: #000000;
+        transform: scale(1.1);
+        box-shadow: 0 0 15px rgba(29, 185, 84, 0.6);
+        border-color: #1DB954;
+    }
+    /* Pagination buttons should be normal pills */
+    div[data-testid="column"] .stButton > button {
+        /* Reset for non-grid buttons if possible, but Streamlit CSS is global. 
+           We'll stick to circular for selection, maybe adjust for pagination below if needed.
+           Actually, let's make specific buttons circular by context if we could, 
+           but for now let's make ALL buttons pill-shaped EXCEPT the grid ones? 
+           Hard to differentiate in CSS without custom classes. 
+           Let's keep the circular style for the main action and maybe tweak pagination.
+        */
     }
     
-    /* 5. Glassmorphism Cards */
-    .css-1r6slb0, .grid-item, div[data-testid="stContainer"] {
-        /* Note: Streamlit containers don't always accept classes easily, 
-           so we target generic containers where possible or use st.markdown wrappers */
+    /* 5. Card Styling (Hover Effect & Layout) */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #181818; /* Surface */
+        border-radius: 8px;
+        padding: 16px;
+        transition: all 0.3s ease;
+        border: 1px solid transparent;
+        /* Flex layout to push button to bottom */
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+        min-height: 200px; /* Ensure consistent height */
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+        background-color: #282828; /* Lighter on hover */
+        border: 1px solid #333;
+        transform: translateY(-8px); /* Pop up effect */
+        box-shadow: 0 12px 24px rgba(0,0,0,0.5);
     }
     
-    /* 6. Status & Expander Fixes (CRITICAL) */
-    /* Status Box Background */
+    /* Linked Hover: Change button when card is hovered */
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover button {
+        background-color: #1DB954;
+        color: #000000;
+        border-color: #1DB954;
+        transform: scale(1.1);
+        box-shadow: 0 0 15px rgba(29, 185, 84, 0.6);
+    }
+    
+    /* Position Play Button at Bottom Right */
+    /* The button is wrapped in a div by Streamlit. We target that wrapper. */
+    div[data-testid="stVerticalBlockBorderWrapper"] > div > div:last-child {
+        margin-top: auto;
+        display: flex;
+        justify-content: flex-end;
+    }
+    
+    /* 6. Terminal Style (Agentic Thinking) */
     div[data-testid="stStatusWidget"] {
-        background-color: #181818 !important;
+        background-color: rgba(0, 0, 0, 0.8) !important;
         border: 1px solid #333;
         border-radius: 8px;
+        font-family: 'Courier New', Courier, monospace !important; /* Monospace */
+        backdrop-filter: blur(5px);
     }
-    /* Status Text */
-    div[data-testid="stStatusWidget"] label, 
-    div[data-testid="stStatusWidget"] div,
+    div[data-testid="stStatusWidget"] label {
+        color: #00FFFF !important; /* Cyan for Title */
+        font-weight: bold;
+        font-family: 'Courier New', Courier, monospace !important;
+    }
+    div[data-testid="stStatusWidget"] div, 
     div[data-testid="stStatusWidget"] p {
-        color: #ffffff !important;
+        color: #1DB954 !important; /* Green for content */
+        font-family: 'Courier New', Courier, monospace !important;
     }
     
-    /* Expander Header */
-    .streamlit-expanderHeader {
-        background-color: #181818 !important;
-        color: #ffffff !important;
-        border-radius: 8px;
-    }
-    .streamlit-expanderContent {
-        background-color: #121212 !important;
-        color: #e0e0e0 !important;
-        border: 1px solid #333;
-        border-top: none;
-    }
-
     /* 7. Layout Fixes */
     .block-container {
         padding-top: 2rem !important;
@@ -110,47 +147,12 @@ st.markdown("""
         display: none;
     }
     
-    /* 8. Custom Classes for Markdown Injection */
-    .glass-card {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-    }
-    .neon-text {
-        color: #1DB954;
-        text-shadow: 0 0 10px rgba(29, 185, 84, 0.3);
-    }
-
-    /* 9. RWD Optimization */
+    /* 8. RWD Optimization */
     @media (max-width: 768px) {
-        /* Reduce padding on mobile */
         .block-container {
-            padding-top: 1rem !important;
-            padding-bottom: 3rem !important;
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
+            padding: 1rem !important;
         }
-        
-        /* Adjust font sizes */
-        h1 { font-size: 1.8rem !important; }
-        h2 { font-size: 1.5rem !important; }
-        h3 { font-size: 1.2rem !important; }
-        
-        /* Ensure iframes take full width */
-        iframe {
-            width: 100% !important;
-        }
-        
-        /* Stack buttons nicely */
-        .stButton > button {
-            width: 100%;
-            margin-bottom: 0.5rem;
-        }
+        iframe { width: 100% !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -225,7 +227,7 @@ def main():
         
         st.divider()
         
-        if st.button("重置 Session"):
+        if st.button("⏻"):
             st.session_state.selected_song = None
             st.session_state.analysis_done = False
             st.rerun()
@@ -245,7 +247,7 @@ def main():
     # Search Bar
     search_col, _ = st.columns([2, 1])
     with search_col:
-        search_query = st.text_input("🔍 搜尋歌曲或藝人 (Search)", on_change=reset_page)
+        search_query = st.text_input("Search", placeholder="Search for songs or artists...", label_visibility="collapsed", on_change=reset_page)
     
     # Filter Logic
     if search_query:
@@ -273,29 +275,32 @@ def main():
     if display_songs.empty:
         st.info("找不到符合的歌曲。")
     else:
-        cols = st.columns(4)
-        for idx, (_, row) in enumerate(display_songs.iterrows()):
-            with cols[idx % 4]:
-                with st.container():
-                    # Embed Player
-                    spotify_embed(row['track_id'], height=80)
-                    # Selection Button
-                    if st.button("選擇此曲", key=f"btn_{row['track_id']}"): # Use track_id for unique key across pages
-                        st.session_state.selected_song = row
-                        st.session_state.analysis_done = True # Auto-start analysis
-                        st.rerun()
+        # Iterate in batches of 4 to create rows
+        for i in range(0, len(display_songs), 4):
+            cols = st.columns(4)
+            batch = display_songs.iloc[i:i+4]
+            for idx, (_, row) in enumerate(batch.iterrows()):
+                with cols[idx]:
+                    with st.container(border=True):
+                        # Embed Player
+                        spotify_embed(row['track_id'], height=80)
+                        # Selection Button
+                        if st.button("▶", key=f"btn_{row['track_id']}"): # Use track_id for unique key across pages
+                            st.session_state.selected_song = row
+                            st.session_state.analysis_done = True # Auto-start analysis
+                            st.rerun()
                         
         # Pagination Controls
         st.write("")
-        col_prev, col_info, col_next = st.columns([1, 2, 1])
+        col_prev, col_info, col_next = st.columns([1, 10, 1])
         with col_prev:
-            if st.button("⬅️ 上一頁", disabled=st.session_state.current_page == 1):
+            if st.button("❮", disabled=st.session_state.current_page == 1):
                 st.session_state.current_page -= 1
                 st.rerun()
         with col_info:
             st.markdown(f"<div style='text-align: center; padding-top: 10px;'>Page {st.session_state.current_page} of {total_pages}</div>", unsafe_allow_html=True)
         with col_next:
-            if st.button("下一頁 ➡️", disabled=st.session_state.current_page == total_pages):
+            if st.button("❯", disabled=st.session_state.current_page == total_pages):
                 st.session_state.current_page += 1
                 st.rerun()
 
@@ -344,7 +349,7 @@ def main():
                     with st.container():
                         spotify_embed(row['track_id'], height=352)
                         explanation = utils.generate_explanation(row, selected_song, traits)
-                        st.info(f"🤖 **AI 推薦:** {explanation}")
+                        st.info(f"{explanation}")
 
 if __name__ == "__main__":
     main()
