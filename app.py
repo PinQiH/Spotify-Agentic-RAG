@@ -125,6 +125,33 @@ st.markdown("""
         color: #1DB954;
         text-shadow: 0 0 10px rgba(29, 185, 84, 0.3);
     }
+
+    /* 9. RWD Optimization */
+    @media (max-width: 768px) {
+        /* Reduce padding on mobile */
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 3rem !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+        
+        /* Adjust font sizes */
+        h1 { font-size: 1.8rem !important; }
+        h2 { font-size: 1.5rem !important; }
+        h3 { font-size: 1.2rem !important; }
+        
+        /* Ensure iframes take full width */
+        iframe {
+            width: 100% !important;
+        }
+        
+        /* Stack buttons nicely */
+        .stButton > button {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -208,21 +235,69 @@ def main():
     # Section 1: Music Library (Grid)
     st.title("🎧 Spotify Agentic RAG")
     
-    # Display a grid of songs (e.g., top 12 from sample)
-    # Use a fixed sample for stability in demo
-    display_songs = df_songs.head(12)
+    # Search & Pagination State
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = 1
+        
+    def reset_page():
+        st.session_state.current_page = 1
+        
+    # Search Bar
+    search_col, _ = st.columns([2, 1])
+    with search_col:
+        search_query = st.text_input("🔍 搜尋歌曲或藝人 (Search)", on_change=reset_page)
     
-    cols = st.columns(4)
-    for idx, (_, row) in enumerate(display_songs.iterrows()):
-        with cols[idx % 4]:
-            with st.container():
-                # Embed Player
-                spotify_embed(row['track_id'], height=80)
-                # Selection Button
-                if st.button("選擇此曲", key=f"btn_{idx}"):
-                    st.session_state.selected_song = row
-                    st.session_state.analysis_done = True # Auto-start analysis
-                    st.rerun()
+    # Filter Logic
+    if search_query:
+        filtered_songs = df_songs[
+            df_songs['track_name'].str.contains(search_query, case=False) | 
+            df_songs['artists'].str.contains(search_query, case=False)
+        ]
+    else:
+        filtered_songs = df_songs
+        
+    # Pagination Logic
+    ITEMS_PER_PAGE = 12
+    total_songs = len(filtered_songs)
+    total_pages = max(1, (total_songs + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+    
+    # Ensure current page is valid
+    if st.session_state.current_page > total_pages:
+        st.session_state.current_page = total_pages
+        
+    start_idx = (st.session_state.current_page - 1) * ITEMS_PER_PAGE
+    end_idx = start_idx + ITEMS_PER_PAGE
+    display_songs = filtered_songs.iloc[start_idx:end_idx]
+    
+    # Grid Display
+    if display_songs.empty:
+        st.info("找不到符合的歌曲。")
+    else:
+        cols = st.columns(4)
+        for idx, (_, row) in enumerate(display_songs.iterrows()):
+            with cols[idx % 4]:
+                with st.container():
+                    # Embed Player
+                    spotify_embed(row['track_id'], height=80)
+                    # Selection Button
+                    if st.button("選擇此曲", key=f"btn_{row['track_id']}"): # Use track_id for unique key across pages
+                        st.session_state.selected_song = row
+                        st.session_state.analysis_done = True # Auto-start analysis
+                        st.rerun()
+                        
+        # Pagination Controls
+        st.write("")
+        col_prev, col_info, col_next = st.columns([1, 2, 1])
+        with col_prev:
+            if st.button("⬅️ 上一頁", disabled=st.session_state.current_page == 1):
+                st.session_state.current_page -= 1
+                st.rerun()
+        with col_info:
+            st.markdown(f"<div style='text-align: center; padding-top: 10px;'>Page {st.session_state.current_page} of {total_pages}</div>", unsafe_allow_html=True)
+        with col_next:
+            if st.button("下一頁 ➡️", disabled=st.session_state.current_page == total_pages):
+                st.session_state.current_page += 1
+                st.rerun()
 
     st.divider()
 
