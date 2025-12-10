@@ -436,9 +436,10 @@ def render_main_app(df_songs, personas):
         # Inject Auto-scroll JS if analysis just started
         if st.session_state.analysis_done:
              components.html(
-                """
+                f"""
                 <script>
-                    window.parent.document.getElementById('now-playing-section').scrollIntoView({behavior: 'smooth'});
+                    // {time.time()}
+                    window.parent.document.getElementById('now-playing-section').scrollIntoView({{behavior: 'smooth'}});
                 </script>
                 """,
                 height=0
