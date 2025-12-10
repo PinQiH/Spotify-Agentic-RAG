@@ -109,6 +109,13 @@ st.markdown("""
         box-shadow: 0 0 15px rgba(29, 185, 84, 0.6);
     }
     
+    /* Force center alignment for buttons in song cards */
+    div[data-testid="column"]:has(iframe) .stButton {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }
+    
     /* 6. Terminal Style (Agentic Thinking) */
     div[data-testid="stStatusWidget"] {
         background-color: #000000 !important;
