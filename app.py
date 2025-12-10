@@ -421,6 +421,9 @@ def render_main_app(df_songs, personas):
 
     # Section 2: Now Playing & Analysis
     if st.session_state.selected_song is not None:
+        # Auto-scroll anchor
+        st.markdown('<div id="now-playing-section"></div>', unsafe_allow_html=True)
+        
         selected_song = st.session_state.selected_song
         
         # Re-fetch persona traits for the current selection (in case it changed)
@@ -429,6 +432,17 @@ def render_main_app(df_songs, personas):
         traits = utils.analyze_persona(history)
 
         st.title("🎵 Now Playing")
+        
+        # Inject Auto-scroll JS if analysis just started
+        if st.session_state.analysis_done:
+             components.html(
+                """
+                <script>
+                    window.parent.document.getElementById('now-playing-section').scrollIntoView({behavior: 'smooth'});
+                </script>
+                """,
+                height=0
+            )
         
         col_hero_1, col_hero_2 = st.columns([3, 1])
         with col_hero_1:
