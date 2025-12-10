@@ -227,7 +227,8 @@ def render_landing_page(personas):
     # Custom CSS for Landing Page Cards
     st.markdown("""
     <style>
-        .persona-card {
+        /* Target the column itself using the marker */
+        div[data-testid="column"]:has(.persona-card-marker) {
             background-color: #181818;
             border: 1px solid #282828;
             border-radius: 12px;
@@ -240,11 +241,12 @@ def render_landing_page(personas):
             flex-direction: column;
             justify-content: space-between;
         }
-        .persona-card:hover {
+        div[data-testid="column"]:has(.persona-card-marker):hover {
             transform: translateY(-10px);
             box-shadow: 0 10px 30px rgba(29, 185, 84, 0.3);
             border-color: #1DB954;
         }
+        
         .persona-title {
             color: #1DB954;
             font-size: 24px;
@@ -257,6 +259,13 @@ def render_landing_page(personas):
             margin-bottom: 24px;
             flex-grow: 1;
         }
+        /* Center the button */
+        div[data-testid="column"]:has(.persona-card-marker) .stButton {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin-top: auto;
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -267,26 +276,26 @@ def render_landing_page(personas):
         "Workout Motivation": "健身愛好者，喜歡高 BPM、激勵人心的音樂來提升運動表現。"
     }
 
-    cols = st.columns(2)
-    for idx, (name, history) in enumerate(personas.items()):
-        with cols[idx % 2]:
-            desc = PERSONA_DESCRIPTIONS.get(name, "一位熱愛音樂的用戶。")
-            
-            # Using st.container to simulate a card
-            with st.container():
-                st.markdown(f"""
-                <div class="persona-card">
-                    <div class="persona-title">{name}</div>
-                    <div class="persona-desc">{desc}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                # Button needs to be outside the custom HTML div to function as a Streamlit widget
-                # We center it using the previously added CSS or just let it be
+    # Convert to list for easier indexing
+    persona_items = list(personas.items())
+    
+    for i in range(0, len(persona_items), 2):
+        cols = st.columns(2)
+        batch = persona_items[i:i+2]
+        
+        for idx, (name, history) in enumerate(batch):
+            with cols[idx]:
+                # Inject marker for CSS targeting
+                st.markdown('<div class="persona-card-marker" style="display:none;"></div>', unsafe_allow_html=True)
+                
+                desc = PERSONA_DESCRIPTIONS.get(name, "一位熱愛音樂的用戶。")
+                
+                st.markdown(f'<div class="persona-title">{name}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="persona-desc">{desc}</div>', unsafe_allow_html=True)
+                
                 if st.button(f"✔", key=f"select_{name}", use_container_width=True):
                     st.session_state.selected_persona = name
                     st.rerun()
-            st.write("") # Spacer
 
 def render_main_app(df_songs, personas):
     """Renders the main application interface."""
