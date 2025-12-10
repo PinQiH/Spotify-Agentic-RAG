@@ -69,6 +69,12 @@ st.markdown("""
         box-shadow: 0 0 15px rgba(29, 185, 84, 0.6);
         border-color: #1DB954;
     }
+    .stButton > button:disabled {
+        border: 2px solid #1DB954 !important;
+        color: #1DB954 !important;
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
     /* Pagination buttons should be normal pills */
     div[data-testid="column"] .stButton > button {
         /* Reset for non-grid buttons if possible, but Streamlit CSS is global. 
@@ -81,21 +87,21 @@ st.markdown("""
     }
     
     /* 5. Card Styling (Hover Effect) */
-    div[data-testid="column"] {
+    div[data-testid="column"]:has(iframe) {
         background-color: #181818; /* Surface */
         border-radius: 8px;
         padding: 16px;
         transition: all 0.3s ease; /* Animate all properties */
         border: 1px solid transparent;
     }
-    div[data-testid="column"]:hover {
+    div[data-testid="column"]:has(iframe):hover {
         background-color: #282828; /* Lighter on hover */
         border: 1px solid #333;
         transform: translateY(-5px); /* Pop up effect */
         box-shadow: 0 10px 20px rgba(0,0,0,0.5);
     }
     /* Linked Hover: Change button when card is hovered */
-    div[data-testid="column"]:hover button {
+    div[data-testid="column"]:has(iframe):hover button {
         background-color: #1DB954;
         color: #000000;
         border-color: #1DB954;
@@ -120,6 +126,19 @@ st.markdown("""
     div[data-testid="stStatusWidget"] p {
         color: #1DB954 !important; /* Green for content */
         font-family: 'Courier New', Courier, monospace !important;
+    }
+
+    /* Improve st.info visibility */
+    div[data-testid="stAlert"] {
+        color: #FFFFFF;
+        border: 1px solid #1DB954;
+    }
+    div[data-testid="stAlert"] p {
+        color: #FFFFFF !important;
+    }
+    /* Remove border for alerts in sidebar */
+    section[data-testid="stSidebar"] div[data-testid="stAlert"] {
+        border: none;
     }
     
     /* 7. Layout Fixes */
@@ -232,7 +251,7 @@ def main():
     # Search Bar
     search_col, _ = st.columns([2, 1])
     with search_col:
-        search_query = st.text_input("🔍 搜尋歌曲或藝人 (Search)", on_change=reset_page)
+        search_query = st.text_input("Search", placeholder="搜尋歌曲或藝人 (Search)", on_change=reset_page, label_visibility="collapsed")
     
     # Filter Logic
     if search_query:
@@ -260,17 +279,19 @@ def main():
     if display_songs.empty:
         st.info("找不到符合的歌曲。")
     else:
-        cols = st.columns(4)
-        for idx, (_, row) in enumerate(display_songs.iterrows()):
-            with cols[idx % 4]:
-                with st.container():
-                    # Embed Player
-                    spotify_embed(row['track_id'], height=80)
-                    # Selection Button
-                    if st.button("▶", key=f"btn_{row['track_id']}"): # Use track_id for unique key across pages
-                        st.session_state.selected_song = row
-                        st.session_state.analysis_done = True # Auto-start analysis
-                        st.rerun()
+        for i in range(0, len(display_songs), 4):
+            cols = st.columns(4)
+            batch = display_songs.iloc[i:i+4]
+            for idx, (_, row) in enumerate(batch.iterrows()):
+                with cols[idx]:
+                    with st.container():
+                        # Embed Player
+                        spotify_embed(row['track_id'], height=80)
+                        # Selection Button
+                        if st.button("▶", key=f"btn_{row['track_id']}"): # Use track_id for unique key across pages
+                            st.session_state.selected_song = row
+                            st.session_state.analysis_done = True # Auto-start analysis
+                            st.rerun()
                         
         # Pagination Controls
         st.write("")
@@ -292,7 +313,7 @@ def main():
     if st.session_state.selected_song is not None:
         selected_song = st.session_state.selected_song
         
-        st.title("🎵 正在播放 (Now Playing)")
+        st.title("🎵 Now Playing")
         
         col_hero_1, col_hero_2 = st.columns([3, 1])
         with col_hero_1:
@@ -301,7 +322,7 @@ def main():
         # Analysis Section (Auto-triggered)
         if st.session_state.analysis_done:
             st.divider()
-            st.title("🧠 代理人思考過程 (Agentic Thinking)")
+            st.title("🧠 Agentic Thinking")
             
             # Step 1: User Understanding
             with st.status("步驟 1: 理解用戶偏好 (User Understanding)...", expanded=True) as status:
@@ -323,7 +344,7 @@ def main():
 
             # Step 3: Generation
             st.divider()
-            st.title("🎧 最終推薦 (Recommended for You)")
+            st.title("🎧 Recommended for You")
             
             rec_cols = st.columns(3)
             for idx, (_, row) in enumerate(final_recs.iterrows()):
