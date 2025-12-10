@@ -218,26 +218,90 @@ def spotify_embed(track_id, height=80):
     url = f"https://open.spotify.com/embed/track/{track_id}?utm_source=generator&theme=0"
     components.iframe(url, height=height)
 
-def main():
-    # Initialize Session State
-    if 'selected_song' not in st.session_state:
-        st.session_state.selected_song = None
-    if 'analysis_done' not in st.session_state:
-        st.session_state.analysis_done = False
-
-    # Load Data
-    df_songs = load_data()
-    personas = load_personas()
+def render_landing_page(personas):
+    """Renders the initial persona selection landing page."""
+    st.title("🎧 Choose Your Persona")
+    st.markdown("### 請選擇一個角色以開始體驗 (Select a persona to start)")
+    st.divider()
     
-    if df_songs is None or not personas:
-        st.warning("請確保資料已正確設定。")
-        return
+    # Custom CSS for Landing Page Cards
+    st.markdown("""
+    <style>
+        .persona-card {
+            background-color: #181818;
+            border: 1px solid #282828;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            transition: all 0.3s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .persona-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 30px rgba(29, 185, 84, 0.3);
+            border-color: #1DB954;
+        }
+        .persona-title {
+            color: #1DB954;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+        .persona-desc {
+            color: #B3B3B3;
+            font-size: 16px;
+            margin-bottom: 24px;
+            flex-grow: 1;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
+    PERSONA_DESCRIPTIONS = {
+        "Chill Vibes": "喜歡放鬆、低保真 (Lo-Fi) 和氛圍音樂的用戶。通常在休息或閱讀時聆聽。",
+        "Party Animal": "熱愛高能量、舞曲和流行音樂的用戶。喜歡節奏感強烈的歌曲。",
+        "Study Focus": "專注於學習和工作，偏好無歌詞或輕柔的背景音樂。",
+        "Workout Motivation": "健身愛好者，喜歡高 BPM、激勵人心的音樂來提升運動表現。"
+    }
+
+    cols = st.columns(2)
+    for idx, (name, history) in enumerate(personas.items()):
+        with cols[idx % 2]:
+            desc = PERSONA_DESCRIPTIONS.get(name, "一位熱愛音樂的用戶。")
+            
+            # Using st.container to simulate a card
+            with st.container():
+                st.markdown(f"""
+                <div class="persona-card">
+                    <div class="persona-title">{name}</div>
+                    <div class="persona-desc">{desc}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Button needs to be outside the custom HTML div to function as a Streamlit widget
+                # We center it using the previously added CSS or just let it be
+                if st.button(f"✔", key=f"select_{name}", use_container_width=True):
+                    st.session_state.selected_persona = name
+                    st.rerun()
+            st.write("") # Spacer
+
+def render_main_app(df_songs, personas):
+    """Renders the main application interface."""
     # Sidebar: Persona Selection
     with st.sidebar:
         # st.title("🎧 Spotify Agentic RAG")
         st.header("用戶角色 (User Persona)")
-        selected_persona_name = st.selectbox("選擇角色", list(personas.keys()))
+        
+        # Default to the selected persona from landing page
+        default_index = list(personas.keys()).index(st.session_state.selected_persona)
+        selected_persona_name = st.selectbox("選擇角色", list(personas.keys()), index=default_index)
+        
+        # Update session state if changed via sidebar
+        if selected_persona_name != st.session_state.selected_persona:
+            st.session_state.selected_persona = selected_persona_name
+            st.rerun()
         
         # Persona Descriptions
         PERSONA_DESCRIPTIONS = {
@@ -267,6 +331,7 @@ def main():
         st.divider()
         
         if st.button("⏻"):
+            st.session_state.selected_persona = None
             st.session_state.selected_song = None
             st.session_state.analysis_done = False
             st.rerun()
@@ -348,6 +413,11 @@ def main():
     if st.session_state.selected_song is not None:
         selected_song = st.session_state.selected_song
         
+        # Re-fetch persona traits for the current selection (in case it changed)
+        selected_persona_name = st.session_state.selected_persona
+        history = personas[selected_persona_name]
+        traits = utils.analyze_persona(history)
+
         st.title("🎵 Now Playing")
         
         col_hero_1, col_hero_2 = st.columns([3, 1])
@@ -396,6 +466,29 @@ def main():
                         spotify_embed(row['track_id'], height=352)
                         explanation = utils.generate_explanation(row, selected_song, traits)
                         st.info(f"{explanation}")
+
+def main():
+    # Initialize Session State
+    if 'selected_song' not in st.session_state:
+        st.session_state.selected_song = None
+    if 'analysis_done' not in st.session_state:
+        st.session_state.analysis_done = False
+    if 'selected_persona' not in st.session_state:
+        st.session_state.selected_persona = None
+
+    # Load Data
+    df_songs = load_data()
+    personas = load_personas()
+    
+    if df_songs is None or not personas:
+        st.warning("請確保資料已正確設定。")
+        return
+
+    # Routing Logic
+    if st.session_state.selected_persona is None:
+        render_landing_page(personas)
+    else:
+        render_main_app(df_songs, personas)
 
 if __name__ == "__main__":
     main()
