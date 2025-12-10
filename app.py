@@ -220,9 +220,9 @@ def spotify_embed(track_id, height=80):
 
 def render_landing_page(personas):
     """Renders the initial persona selection landing page."""
-    st.title("🎧 Choose Your Persona")
-    st.markdown("### 請選擇一個角色以開始體驗 (Select a persona to start)")
-    st.divider()
+    st.title("Choose Your Persona...")
+    # st.markdown("### 請選擇一個角色以開始體驗 (Select a persona to start)")
+    # st.divider()
     
     # Custom CSS for Landing Page Cards
     st.markdown("""
@@ -235,6 +235,7 @@ def render_landing_page(personas):
             text-align: center;
             transition: all 0.3s ease;
             height: 100%;
+            min-height: 250px; /* Ensure consistent height */
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -279,7 +280,7 @@ def render_landing_page(personas):
                     <div class="persona-desc">{desc}</div>
                 </div>
                 """, unsafe_allow_html=True)
-                
+
                 # Button needs to be outside the custom HTML div to function as a Streamlit widget
                 # We center it using the previously added CSS or just let it be
                 if st.button(f"✔", key=f"select_{name}", use_container_width=True):
