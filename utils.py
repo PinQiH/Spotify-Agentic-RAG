@@ -70,3 +70,85 @@ def generate_explanation(rec_song, context_song, persona_traits):
     ]
     
     return f"推薦理由：{reasons[0]} 且{reasons[2]}"
+
+def plot_pca_visualization(df_songs, context_song, recommended_songs):
+    """
+    Performs PCA to reduce song features to 2D and plots the distribution.
+    Highlights the context song and recommended songs.
+    """
+    import plotly.express as px
+    from sklearn.decomposition import PCA
+    from sklearn.preprocessing import StandardScaler
+    
+    # 1. Feature Engineering
+    # Select numerical features
+    features = ['danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 
+                'instrumentalness', 'liveness', 'valence', 'tempo']
+    
+    # Check if 'key' and 'mode' exist for advanced encoding
+    if 'key' in df_songs.columns:
+        # Sin/Cos encoding for Key (Circular feature)
+        df_songs['key_sin'] = np.sin(2 * np.pi * df_songs['key'] / 12)
+        df_songs['key_cos'] = np.cos(2 * np.pi * df_songs['key'] / 12)
+        features.extend(['key_sin', 'key_cos'])
+        
+    if 'mode' in df_songs.columns:
+        features.append('mode')
+        
+    # Prepare data
+    X = df_songs[features].fillna(0)
+    
+    # Standardization
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # 2. PCA Reduction
+    pca = PCA(n_components=2)
+    components = pca.fit_transform(X_scaled)
+    
+    # Create DataFrame for plotting
+    plot_df = pd.DataFrame(data=components, columns=['PC1', 'PC2'])
+    plot_df['track_name'] = df_songs['track_name']
+    plot_df['artists'] = df_songs['artists']
+    plot_df['track_genre'] = df_songs['track_genre']
+    plot_df['Type'] = 'Other' # Default type
+    plot_df['Size'] = 1       # Default size
+    
+    # Highlight Context Song
+    context_idx = df_songs[df_songs['track_id'] == context_song['track_id']].index
+    if not context_idx.empty:
+        plot_df.loc[context_idx, 'Type'] = 'Now Playing'
+        plot_df.loc[context_idx, 'Size'] = 5
+        
+    # Highlight Recommended Songs
+    rec_ids = recommended_songs['track_id'].values
+    rec_indices = df_songs[df_songs['track_id'].isin(rec_ids)].index
+    if not rec_indices.empty:
+        plot_df.loc[rec_indices, 'Type'] = 'Recommended'
+        plot_df.loc[rec_indices, 'Size'] = 3
+        
+    # 3. Plotting
+    fig = px.scatter(
+        plot_df, 
+        x='PC1', 
+        y='PC2', 
+        color='Type',
+        size='Size',
+        hover_data=['track_name', 'artists', 'track_genre'],
+        color_discrete_map={
+            'Other': '#282828',       # Dark Gray for background
+            'Now Playing': '#1DB954', # Spotify Green
+            'Recommended': '#00FFFF'  # Cyan for recommendations
+        },
+        title="Song Embedding Space (PCA 2D Projection)",
+        template="plotly_dark",
+        opacity=0.8
+    )
+    
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        legend_title_text=''
+    )
+    
+    return fig

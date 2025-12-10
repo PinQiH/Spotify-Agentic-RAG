@@ -491,6 +491,14 @@ def render_main_app(df_songs, personas):
                         spotify_embed(row['track_id'], height=352)
                         explanation = utils.generate_explanation(row, selected_song, traits)
                         st.info(f"{explanation}")
+            
+            # 4. Visualization (PCA)
+            st.divider()
+            st.title("📊 Visualization")
+            
+            with st.spinner("Generating Embedding Space Visualization..."):
+                fig = utils.plot_pca_visualization(df_songs, selected_song, final_recs)
+                st.plotly_chart(fig, use_container_width=True)
 
 def main():
     # Initialize Session State
