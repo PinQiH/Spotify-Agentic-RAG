@@ -80,42 +80,27 @@ st.markdown("""
         */
     }
     
-    /* 5. Card Styling (Hover Effect & Layout) */
-    div[data-testid="stVerticalBlockBorderWrapper"] {
+    /* 5. Card Styling (Hover Effect) */
+    div[data-testid="column"] {
         background-color: #181818; /* Surface */
         border-radius: 8px;
         padding: 16px;
-        transition: all 0.3s ease;
+        transition: all 0.3s ease; /* Animate all properties */
         border: 1px solid transparent;
-        /* Flex layout to push button to bottom */
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        height: 100%;
-        min-height: 200px; /* Ensure consistent height */
     }
-    div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+    div[data-testid="column"]:hover {
         background-color: #282828; /* Lighter on hover */
         border: 1px solid #333;
-        transform: translateY(-8px); /* Pop up effect */
-        box-shadow: 0 12px 24px rgba(0,0,0,0.5);
+        transform: translateY(-5px); /* Pop up effect */
+        box-shadow: 0 10px 20px rgba(0,0,0,0.5);
     }
-    
     /* Linked Hover: Change button when card is hovered */
-    div[data-testid="stVerticalBlockBorderWrapper"]:hover button {
+    div[data-testid="column"]:hover button {
         background-color: #1DB954;
         color: #000000;
         border-color: #1DB954;
         transform: scale(1.1);
         box-shadow: 0 0 15px rgba(29, 185, 84, 0.6);
-    }
-    
-    /* Position Play Button at Bottom Right */
-    /* The button is wrapped in a div by Streamlit. We target that wrapper. */
-    div[data-testid="stVerticalBlockBorderWrapper"] > div > div:last-child {
-        margin-top: auto;
-        display: flex;
-        justify-content: flex-end;
     }
     
     /* 6. Terminal Style (Agentic Thinking) */
@@ -247,7 +232,7 @@ def main():
     # Search Bar
     search_col, _ = st.columns([2, 1])
     with search_col:
-        search_query = st.text_input("Search", placeholder="Search for songs or artists...", label_visibility="collapsed", on_change=reset_page)
+        search_query = st.text_input("🔍 搜尋歌曲或藝人 (Search)", on_change=reset_page)
     
     # Filter Logic
     if search_query:
@@ -275,20 +260,17 @@ def main():
     if display_songs.empty:
         st.info("找不到符合的歌曲。")
     else:
-        # Iterate in batches of 4 to create rows
-        for i in range(0, len(display_songs), 4):
-            cols = st.columns(4)
-            batch = display_songs.iloc[i:i+4]
-            for idx, (_, row) in enumerate(batch.iterrows()):
-                with cols[idx]:
-                    with st.container(border=True):
-                        # Embed Player
-                        spotify_embed(row['track_id'], height=80)
-                        # Selection Button
-                        if st.button("▶", key=f"btn_{row['track_id']}"): # Use track_id for unique key across pages
-                            st.session_state.selected_song = row
-                            st.session_state.analysis_done = True # Auto-start analysis
-                            st.rerun()
+        cols = st.columns(4)
+        for idx, (_, row) in enumerate(display_songs.iterrows()):
+            with cols[idx % 4]:
+                with st.container():
+                    # Embed Player
+                    spotify_embed(row['track_id'], height=80)
+                    # Selection Button
+                    if st.button("▶", key=f"btn_{row['track_id']}"): # Use track_id for unique key across pages
+                        st.session_state.selected_song = row
+                        st.session_state.analysis_done = True # Auto-start analysis
+                        st.rerun()
                         
         # Pagination Controls
         st.write("")
