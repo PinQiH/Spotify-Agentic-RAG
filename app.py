@@ -111,21 +111,49 @@ st.markdown("""
     
     /* 6. Terminal Style (Agentic Thinking) */
     div[data-testid="stStatusWidget"] {
-        background-color: rgba(0, 0, 0, 0.8) !important;
-        border: 1px solid #333;
-        border-radius: 8px;
-        font-family: 'Courier New', Courier, monospace !important; /* Monospace */
-        backdrop-filter: blur(5px);
+        background-color: #000000 !important;
+        border: 2px solid #00FF41 !important;
+        border-radius: 4px !important;
+        font-family: 'Consolas', 'Courier New', monospace !important;
+        box-shadow: 0 0 15px #00FF41, inset 0 0 10px rgba(0, 255, 65, 0.2) !important;
+        min-height: 100px;
+        position: relative;
     }
+    
+    /* Header/Summary Styling */
+    div[data-testid="stStatusWidget"] > div:first-child {
+        background-color: #000000 !important;
+    }
+    
     div[data-testid="stStatusWidget"] label {
-        color: #00FFFF !important; /* Cyan for Title */
-        font-weight: bold;
-        font-family: 'Courier New', Courier, monospace !important;
+        color: #00FF41 !important; /* Neon Green Title */
+        font-weight: bold !important;
+        font-family: 'Consolas', 'Courier New', monospace !important;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
-    div[data-testid="stStatusWidget"] div, 
-    div[data-testid="stStatusWidget"] p {
-        color: #1DB954 !important; /* Green for content */
-        font-family: 'Courier New', Courier, monospace !important;
+    
+    /* Content Styling */
+    div[data-testid="stStatusWidget"] div[data-testid="stMarkdownContainer"] p {
+        color: #00FFFF !important; /* Cyan Content */
+        font-family: 'Consolas', 'Courier New', monospace !important;
+        font-size: 14px !important;
+    }
+    
+    /* Blinking Cursor Animation */
+    @keyframes blink {
+        0% { opacity: 1; }
+        50% { opacity: 0; }
+        100% { opacity: 1; }
+    }
+    div[data-testid="stStatusWidget"]::after {
+        content: " █";
+        color: #00FF41;
+        animation: blink 1s infinite;
+        font-weight: bold;
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
     }
 
     /* Improve st.info visibility */
@@ -324,23 +352,31 @@ def main():
             st.divider()
             st.title("🧠 Agentic Thinking")
             
-            # Step 1: User Understanding
-            with st.status("步驟 1: 理解用戶偏好 (User Understanding)...", expanded=True) as status:
-                time.sleep(1.0)
-                st.write(f"**當前角色:** {selected_persona_name}")
-                st.write(f"**偏好分析:** 該用戶喜歡 {traits['top_genres'][0]} 和 {traits['top_genres'][1]} 風格。平均熱門度偏好: {int(traits['avg_popularity'])}。")
-                status.update(label="步驟 1: 用戶畫像建立完成", state="complete", expanded=False)
-
-            # Step 2: Retrieval
-            with st.status("步驟 2: 檢索與過濾 (Retrieval & Filtering)...", expanded=True) as status:
-                time.sleep(1.0)
-                st.write(f"**初步檢索:** 正在尋找與 {selected_song['track_genre']} 風格相似且節奏約 {int(selected_song['tempo'])} BPM 的歌曲...")
+            # Step 1: Candidate Retrieval
+            with st.status("[STEP 1: Candidate_Retrieval: PROCESSING...]", expanded=True) as status:
+                time.sleep(0.5)
+                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Initiating <span style='color:#00FF41'>hybrid_retrieval</span> protocol...</span>", unsafe_allow_html=True)
+                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Accessing <span style='color:#00FF41'>[Co-occurrence_DB]</span> and <span style='color:#00FF41'>[Semantic_Similarity_Model]</span>...</span>", unsafe_allow_html=True)
                 
                 retrieved, final_recs = utils.get_recommendations(df_songs, selected_song, traits)
-                time.sleep(0.5)
                 
-                st.write(f"**代理人過濾:** 找到 {len(retrieved)} 首候選歌曲。正在根據用戶對 {traits['top_artists'][0]} 的喜好進行過濾...")
-                status.update(label="步驟 2: 候選歌曲過濾完成", state="complete", expanded=False)
+                st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Retrieval complete. Candidates found: <span style='color:#00FF41'>[{len(retrieved)}]</span></span>", unsafe_allow_html=True)
+                status.update(label="[STEP 1: Candidate_Retrieval: OK]", state="complete", expanded=False)
+
+            # Step 2: Filtering & Reasoning
+            with st.status("[STEP 2: Filtering_Reasoning: PROCESSING...]", expanded=True) as status:
+                time.sleep(0.5)
+                st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Loading persona profile: <span style='color:#00FF41'>['{selected_persona_name}']</span></span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Analyzing context: Genre=<span style='color:#00FF41'>[{selected_song['track_genre']}]</span>, BPM=<span style='color:#00FF41'>[{int(selected_song['tempo'])}]</span></span>", unsafe_allow_html=True)
+                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Applying filtering logic... <span style='color:#00FF41'>[FILTER_LOW_RELEVANCE]</span></span>", unsafe_allow_html=True)
+                status.update(label="[STEP 2: Filtering_Reasoning: OK]", state="complete", expanded=False)
+
+            # Step 3: Ranking & Generating
+            with st.status("[STEP 3: Ranking_Generating: PROCESSING...]", expanded=True) as status:
+                time.sleep(0.5)
+                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Calculating final weights based on <span style='color:#00FF41'>[User_History_Preference]</span>...</span>", unsafe_allow_html=True)
+                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Generating natural language explanations... <span style='color:#00FF41'>[GEN_REASONING]</span></span>", unsafe_allow_html=True)
+                status.update(label="[STEP 3: Ranking_Generating: OK]", state="complete", expanded=False)
 
             # Step 3: Generation
             st.divider()
