@@ -1,0 +1,82 @@
+[
+    {
+        "track_id": "43zT3oDEP3I5FiZWugfqCZ",
+        "track_name": "Adada Adada",
+        "artists": "Chitharth",
+        "album_name": "Santhosh Subramaniyam (Original Motion Picture Soundtrack)",
+        "track_genre": "pop",
+        "popularity": 64
+    },
+    {
+        "track_id": "33KJ2xFYONOlIYDBg6wPx8",
+        "track_name": "Personal",
+        "artists": "HRVY",
+        "album_name": "Talk To Ya - EP",
+        "track_genre": "dance",
+        "popularity": 70
+    },
+    {
+        "track_id": "5QKiLD7zEXvQc8VlFYmqhb",
+        "track_name": "Coka 2.0 (From \"Liger (Telugu)\")",
+        "artists": "Jaani;Lijo George-Dj Chetas;Ram Miriyala;Geetha Madhuri;Sukh-E Muzical Doctorz",
+        "album_name": "Coka 2.0 [From \"Liger (Telugu)\"]",
+        "track_genre": "pop",
+        "popularity": 66
+    },
+    {
+        "track_id": "4BiiOzZCrXEzHRLYcYFiD5",
+        "track_name": "Hope",
+        "artists": "The Chainsmokers;Winona Oak",
+        "album_name": "Sick Boy",
+        "track_genre": "edm",
+        "popularity": 65
+    },
+    {
+        "track_id": "0xzI1KAr0Yd9tv8jlIk3sn",
+        "track_name": "Bad Decisions (with BTS & Snoop Dogg)",
+        "artists": "benny blanco;BTS;Snoop Dogg",
+        "album_name": "Bad Decisions (with BTS & Snoop Dogg)",
+        "track_genre": "dance",
+        "popularity": 87
+    },
+    {
+        "track_id": "3B4etxytImrRKQgV3XHjnR",
+        "track_name": "Harleys In Hawaii",
+        "artists": "Katy Perry",
+        "album_name": "Smile",
+        "track_genre": "dance",
+        "popularity": 78
+    },
+    {
+        "track_id": "0jDWRUbxSn8zQlwFbeLHwo",
+        "track_name": "Evacuate The Dancefloor",
+        "artists": "Cascada",
+        "album_name": "Evacuate The Dancefloor",
+        "track_genre": "techno",
+        "popularity": 63
+    },
+    {
+        "track_id": "5mNOfozRJBZGnq4gO4rwM2",
+        "track_name": "Bamb Agya",
+        "artists": "Gur Sidhu;Jasmine Sandlas;Kaptaan",
+        "album_name": "Bamb Agya",
+        "track_genre": "pop",
+        "popularity": 65
+    },
+    {
+        "track_id": "6v3KW9xbzN5yKLt9YKDYA2",
+        "track_name": "Señorita",
+        "artists": "Shawn Mendes;Camila Cabello",
+        "album_name": "Shawn Mendes (Deluxe)",
+        "track_genre": "dance",
+        "popularity": 80
+    },
+    {
+        "track_id": "5nujrmhLynf4yMoMtj8AQF",
+        "track_name": "Levitating (feat. DaBaby)",
+        "artists": "Dua Lipa;DaBaby",
+        "album_name": "Future Nostalgia",
+        "track_genre": "dance",
+        "popularity": 85
+    }
+]

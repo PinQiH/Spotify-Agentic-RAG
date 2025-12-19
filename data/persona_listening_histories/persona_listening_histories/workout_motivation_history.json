@@ -1,0 +1,82 @@
+[
+    {
+        "track_id": "5I35M1ruDXFzK63YCg7Ijw",
+        "track_name": "Snapchat Story",
+        "artists": "Bilal Saeed;Romee Khan",
+        "album_name": "Snapchat Story",
+        "track_genre": "hip-hop",
+        "popularity": 57
+    },
+    {
+        "track_id": "6GSkLS2y4ZnnZsuRAj975K",
+        "track_name": "Project Dreams",
+        "artists": "Marshmello;Roddy Ricch",
+        "album_name": "Project Dreams",
+        "track_genre": "edm",
+        "popularity": 67
+    },
+    {
+        "track_id": "7mUuarQfB0E0Xs80Vzd2gw",
+        "track_name": "Chitta Kurta",
+        "artists": "Karan Aujla;Gurlez Akhtar",
+        "album_name": "Chitta Kurta",
+        "track_genre": "hip-hop",
+        "popularity": 59
+    },
+    {
+        "track_id": "3dz63QjQVZy7RYPzx6l3JU",
+        "track_name": "Your Side Of The Bed (feat. Eric Nam)",
+        "artists": "Loote;Eric Nam",
+        "album_name": "Your Side Of The Bed (Remixes)",
+        "track_genre": "edm",
+        "popularity": 61
+    },
+    {
+        "track_id": "7qiZfU4dY1lWllzX7mPBI3",
+        "track_name": "Shape of You",
+        "artists": "Ed Sheeran",
+        "album_name": "÷ (Deluxe)",
+        "track_genre": "pop",
+        "popularity": 86
+    },
+    {
+        "track_id": "5cjVsWqIkBQC7acTRhL0RO",
+        "track_name": "Kamariya",
+        "artists": "Aastha Gill;Sachin Sanghvi;Jigar Saraiya;Divya Kumar",
+        "album_name": "Stree",
+        "track_genre": "pop",
+        "popularity": 65
+    },
+    {
+        "track_id": "3CIyK1V4JEJkg02E4EJnDl",
+        "track_name": "Enemy (with JID) - from the series Arcane League of Legends",
+        "artists": "Imagine Dragons;JID;Arcane;League of Legends",
+        "album_name": "Mercury - Acts 1 & 2",
+        "track_genre": "rock",
+        "popularity": 82
+    },
+    {
+        "track_id": "3B54sVLJ402zGa6Xm4YGNe",
+        "track_name": "Unforgettable",
+        "artists": "French Montana;Swae Lee",
+        "album_name": "Jungle Rules",
+        "track_genre": "hip-hop",
+        "popularity": 82
+    },
+    {
+        "track_id": "5DIt4eq2D6CZjX1s5jwrnP",
+        "track_name": "Tere Naal Nachna (From \"Nawabzaade\")",
+        "artists": "Badshah;Sunanda Sharma",
+        "album_name": "Tere Naal Nachna (From \"Nawabzaade\")",
+        "track_genre": "hip-hop",
+        "popularity": 60
+    },
+    {
+        "track_id": "1XdUEm2MwB6ysy6E80ltMg",
+        "track_name": "No Cap",
+        "artists": "KR$NA",
+        "album_name": "No Cap",
+        "track_genre": "hip-hop",
+        "popularity": 62
+    }
+]

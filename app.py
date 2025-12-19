@@ -4,6 +4,12 @@ import time
 import json
 import os
 import utils
+import faiss
+import pickle
+import shutil
+import tempfile
+import numpy as np
+from sentence_transformers import SentenceTransformer
 import streamlit.components.v1 as components
 
 # Set page config MUST be the first Streamlit command
@@ -13,6 +19,12 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# --- Configuration ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+INDEX_PATH = os.path.join(DATA_DIR, "spotify.index")
+META_PATH = os.path.join(DATA_DIR, "spotify_meta.pkl")
 
 # Custom CSS for Spotify Dark Theme & Layout Fixes
 st.markdown("""
@@ -213,12 +225,66 @@ def load_personas():
                     personas[name] = json.load(file)
     return personas
 
+def load_persona_summaries():
+    """Loads persona summaries from the JSON file."""
+    path = "data/persona_listening_histories/persona_listening_histories/persona_summaries.json"
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+    return {}
+
+@st.cache_resource
+def load_faiss_resources():
+    """Loads FAISS index, metadata, and embedding model."""
+    print("Loading FAISS resources...")
+    
+    # 1. Load Index (with Windows workaround)
+    if not os.path.exists(INDEX_PATH):
+        st.error(f"Index not found at {INDEX_PATH}")
+        return None, None, None
+
+    try:
+        # Workaround: FAISS C++ read_index fails with non-ASCII paths on Windows.
+        # Copy to a temp file with ASCII path, read it, then delete temp.
+        fd, temp_path = tempfile.mkstemp(suffix=".index")
+        os.close(fd)
+        shutil.copy2(INDEX_PATH, temp_path)
+        
+        index = faiss.read_index(temp_path)
+        
+    except Exception as e:
+        st.error(f"Failed to load FAISS index: {e}")
+        return None, None, None
+    finally:
+         if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.remove(temp_path)
+            
+    # 2. Load Metadata
+    if not os.path.exists(META_PATH):
+        st.error(f"Metadata not found at {META_PATH}")
+        return None, None, None
+        
+    with open(META_PATH, "rb") as f:
+        metadata = pickle.load(f)
+        
+    # 3. Load Model
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    
+    return index, metadata, model
+
+@st.cache_data
+def load_precomputed_data():
+    """Loads precomputed similarity data (cached)."""
+    return utils.load_precomputed_similarities()
+
 def spotify_embed(track_id, height=80):
     """Embeds a Spotify player for the given track_id."""
     url = f"https://open.spotify.com/embed/track/{track_id}?utm_source=generator&theme=0"
     components.iframe(url, height=height)
 
-def render_landing_page(personas):
+def render_landing_page(personas, persona_summaries):
     """Renders the initial persona selection landing page."""
     st.title("Choose Your Persona...")
     # st.markdown("### 請選擇一個角色以開始體驗 (Select a persona to start)")
@@ -258,6 +324,7 @@ def render_landing_page(personas):
             font-size: 16px;
             margin-bottom: 24px;
             flex-grow: 1;
+            text-align: left;
         }
         /* Center the button */
         div[data-testid="column"]:has(.persona-card-marker) .stButton {
@@ -269,12 +336,7 @@ def render_landing_page(personas):
     </style>
     """, unsafe_allow_html=True)
 
-    PERSONA_DESCRIPTIONS = {
-        "Chill Vibes": "喜歡放鬆、低保真 (Lo-Fi) 和氛圍音樂的用戶。通常在休息或閱讀時聆聽。",
-        "Party Animal": "熱愛高能量、舞曲和流行音樂的用戶。喜歡節奏感強烈的歌曲。",
-        "Study Focus": "專注於學習和工作，偏好無歌詞或輕柔的背景音樂。",
-        "Workout Motivation": "健身愛好者，喜歡高 BPM、激勵人心的音樂來提升運動表現。"
-    }
+    # PERSONA_DESCRIPTIONS (Removed hardcoded dict)
 
     # Convert to list for easier indexing
     persona_items = list(personas.items())
@@ -288,7 +350,14 @@ def render_landing_page(personas):
                 # Inject marker for CSS targeting
                 st.markdown('<div class="persona-card-marker" style="display:none;"></div>', unsafe_allow_html=True)
                 
-                desc = PERSONA_DESCRIPTIONS.get(name, "一位熱愛音樂的用戶。")
+                desc = persona_summaries.get(name, "一位熱愛音樂的用戶。")
+                
+                # Truncate to 50 chars if longer
+                if len(desc) > 40:
+                    desc = desc[:40] + "..."
+                    
+                # Replace newlines with <br> for HTML rendering
+                desc = desc.replace("\n", "<br>")
                 
                 st.markdown(f'<div class="persona-title">{name}</div>', unsafe_allow_html=True)
                 st.markdown(f'<div class="persona-desc">{desc}</div>', unsafe_allow_html=True)
@@ -297,7 +366,8 @@ def render_landing_page(personas):
                     st.session_state.selected_persona = name
                     st.rerun()
 
-def render_main_app(df_songs, personas):
+def render_main_app(df_songs, personas, persona_summaries, precomputed_data, faiss_index, faiss_metadata, embedding_model):
+
     """Renders the main application interface."""
     # Sidebar: Persona Selection
     with st.sidebar:
@@ -314,15 +384,18 @@ def render_main_app(df_songs, personas):
             st.rerun()
         
         # Persona Descriptions
-        PERSONA_DESCRIPTIONS = {
-            "Chill Vibes": "喜歡放鬆、低保真 (Lo-Fi) 和氛圍音樂的用戶。通常在休息或閱讀時聆聽。",
-            "Party Animal": "熱愛高能量、舞曲和流行音樂的用戶。喜歡節奏感強烈的歌曲。",
-            "Study Focus": "專注於學習和工作，偏好無歌詞或輕柔的背景音樂。",
-            "Workout Motivation": "健身愛好者，喜歡高 BPM、激勵人心的音樂來提升運動表現。"
-        }
         
         # Show Description
-        desc = PERSONA_DESCRIPTIONS.get(selected_persona_name, "一位熱愛音樂的用戶。")
+        desc = persona_summaries.get(selected_persona_name, "一位熱愛音樂的用戶。")
+        # Ensure it renders as markdown lists correctly if it contains bullets
+        # st.info interprets markdown, but sometimes needs double newlines for strict markdown
+        # However, for pure display, let's keep it as is, usually st.info handles \n as a line break if it's md.
+        # But if user says it doesn't work, maybe it was the landing page.
+        # Let's assume landing page was the main issue (HTML div).
+        # But just in case, let's fix sidebar too if needed. 
+        # Actually, if the JSON has "- ...", markdown needs a newline before the list starts if it follows text.
+        # The JSON values start with "- ", so it should be fine as a list.
+        # Let's just fix the landing page first as that is definitely broken (HTML ignoring \n).
         st.info(f"📝 **角色描述:**\n{desc}")
         
         # Show mini profile
@@ -454,43 +527,133 @@ def render_main_app(df_songs, personas):
             st.divider()
             st.title("🧠 Agentic Thinking")
             
-            # Step 1: Candidate Retrieval
-            with st.status("[STEP 1: Candidate_Retrieval: PROCESSING...]", expanded=True) as status:
+            # Step 1: Pre-computed Candidates
+            with st.status("[STEP 1: Candidates from Pre-computed Similar Items: PROCESSING...]", expanded=True) as status:
                 time.sleep(0.5)
-                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Initiating <span style='color:#00FF41'>hybrid_retrieval</span> protocol...</span>", unsafe_allow_html=True)
-                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Accessing <span style='color:#00FF41'>[Co-occurrence_DB]</span> and <span style='color:#00FF41'>[Semantic_Similarity_Model]</span>...</span>", unsafe_allow_html=True)
+                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Accessing <span style='color:#00FF41'>[Co-occurrence_DB]</span> for high-confidence pairs...</span>", unsafe_allow_html=True)
                 
-                retrieved, final_recs = utils.get_recommendations(df_songs, selected_song, traits)
+                # Retrieve pre-computed candidates
+                step1_candidates = utils.get_precomputed_candidates(selected_song['track_id'], precomputed_data)
                 
-                st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Retrieval complete. Candidates found: <span style='color:#00FF41'>[{len(retrieved)}]</span></span>", unsafe_allow_html=True)
-                status.update(label="[STEP 1: Candidate_Retrieval: OK]", state="complete", expanded=False)
+                # Filter out candidates that match the current song's Name AND Artist (ignoring case)
+                # This covers cases where different IDs represent the same song
+                q_name = selected_song['track_name'].strip().lower()
+                q_artist = selected_song['artists'].strip().lower()
+                
+                step1_candidates = [
+                    c for c in step1_candidates 
+                    if not (c['track_name'].strip().lower() == q_name and c['artists'].strip().lower() == q_artist)
+                ]
+                
+                if step1_candidates:
+                    st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Retrieved <span style='color:#00FF41'>[{len(step1_candidates)}]</span> pre-computed candidates based on audio similarity.</span>", unsafe_allow_html=True)
+                    
+                    # Display all candidates
+                    for i, cand in enumerate(step1_candidates):
+                        score = cand.get('similarity_score', 0)
+                        st.markdown(f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{cand['track_name']}</span> by {cand['artists']} (Score: {score:.4f})</span>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; No pre-computed candidates found for this track. Using fallback retrieval.</span>", unsafe_allow_html=True)
 
-            # Step 2: Filtering & Reasoning
-            with st.status("[STEP 2: Filtering_Reasoning: PROCESSING...]", expanded=True) as status:
+                status.update(label="[STEP 1: Candidates from Pre-computed Similar Items: OK]", state="complete", expanded=False)
+
+            # Step 2: Semantic Search (FAISS)
+            with st.status("[STEP 2: Candidates from FAISS Semantic Search: PROCESSING...]", expanded=True) as status:
+                time.sleep(0.5)
+                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Converting query to vector embedding... <span style='color:#00FF41'>[All-MiniLM-L6-v2]</span></span>", unsafe_allow_html=True)
+                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Querying <span style='color:#00FF41'>[FAISS]</span> for semantic similarity...</span>", unsafe_allow_html=True)
+                
+                # FAISS Retrieval Logic
+                if faiss_index and faiss_metadata and embedding_model:
+                    # Construct query: Track Name + Artist + Genre
+                    query = f"{selected_song['track_name']} {selected_song['artists']} {selected_song['track_genre']}"
+                    
+                    # Embed
+                    query_vec = embedding_model.encode([query])
+                    query_vec = np.array(query_vec).astype('float32')
+                    faiss.normalize_L2(query_vec)
+                    
+                    # Search
+                    D, I = faiss_index.search(query_vec, k=10)
+                    
+                    # Process Results
+                    step2_candidates = []
+                    found_indices = I[0]
+                    scores = D[0]
+                    
+                    for score, idx in zip(scores, found_indices):
+                        if idx == -1: continue
+                        meta = faiss_metadata[idx]
+                        step2_candidates.append({
+                            'track_id': meta['track_id'],
+                            'track_name': meta['track_name'],
+                            'artists': meta['artists'],
+                            'score': float(score),
+                            'rag_doc': meta['rag_doc']
+                        })
+
+                    st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Vector search complete. Retrieved <span style='color:#00FF41'>[{len(step2_candidates)}]</span> semantic candidates.</span>", unsafe_allow_html=True)
+                    
+                    for i, cand in enumerate(step2_candidates):
+                        score = cand['score']
+                        expl_desc = cand['rag_doc'][:70] + "..." if len(cand['rag_doc']) > 60 else cand['rag_doc']
+                        st.markdown(f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{cand['track_name']}</span> by {cand['artists']} (Score: {score:.4f}) <br>  <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'>Desc: {expl_desc}</span></span>", unsafe_allow_html=True)
+                
+                else:
+                    st.error("FAISS resources not loaded.")
+                    step2_candidates = []
+                    
+                # Keep expanded so user sees the list
+                status.update(label="[STEP 2: Candidates from FAISS Semantic Search: OK]", state="complete", expanded=True)
+
+            # Step 3: Re-ranking & Filtering
+            with st.status("[STEP 3: Re-ranked and Filtered Recommendations: PROCESSING...]", expanded=True) as status:
                 time.sleep(0.5)
                 st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Loading persona profile: <span style='color:#00FF41'>['{selected_persona_name}']</span></span>", unsafe_allow_html=True)
-                st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Analyzing context: Genre=<span style='color:#00FF41'>[{selected_song['track_genre']}]</span>, BPM=<span style='color:#00FF41'>[{int(selected_song['tempo'])}]</span></span>", unsafe_allow_html=True)
-                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Applying filtering logic... <span style='color:#00FF41'>[FILTER_LOW_RELEVANCE]</span></span>", unsafe_allow_html=True)
-                status.update(label="[STEP 2: Filtering_Reasoning: OK]", state="complete", expanded=False)
+                st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Applying filters: Genre=<span style='color:#00FF41'>[{selected_song['track_genre']}]</span>, BPM=<span style='color:#00FF41'>[{int(selected_song['tempo'])}]</span></span>", unsafe_allow_html=True)
+                
+                # Combine and Rerank (LLM-based)
+                if 'step1_candidates' not in locals(): step1_candidates = []
+                
+                st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#FF00FF'>GPT-4o Agent</span> for re-ranking...</span>", unsafe_allow_html=True)
+                final_recs, llm_explanation = utils.llm_rerank_candidates(df_songs, step1_candidates, step2_candidates, selected_song, traits, top_k=20)
+                
+                st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Re-ranking complete. Selected top <span style='color:#00FF41'>[{len(final_recs)}]</span> candidates based on <span style='color:#00FF41'>[User_History_Preference]</span>.</span>", unsafe_allow_html=True)
+                
+                for i, (_, row) in enumerate(final_recs.iterrows()):
+                    score = row.get('ranking_score', 0)
+                    # Use LLM reason if available, else fallback to template
+                    reason = row.get('reason') if pd.notna(row.get('reason')) else utils.generate_explanation(row, selected_song, traits)
+                    st.markdown(f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{row['track_name']}</span> by {row['artists']} (Score: {score:.1f}) <br> <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'> Reason: {reason}</span></span>", unsafe_allow_html=True)
 
-            # Step 3: Ranking & Generating
-            with st.status("[STEP 3: Ranking_Generating: PROCESSING...]", expanded=True) as status:
-                time.sleep(0.5)
-                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Calculating final weights based on <span style='color:#00FF41'>[User_History_Preference]</span>...</span>", unsafe_allow_html=True)
-                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Generating natural language explanations... <span style='color:#00FF41'>[GEN_REASONING]</span></span>", unsafe_allow_html=True)
-                status.update(label="[STEP 3: Ranking_Generating: OK]", state="complete", expanded=False)
+                status.update(label="[STEP 3: Re-ranked and Filtered Recommendations: OK]", state="complete", expanded=False)
+
+            # Step 4: LLM Explanation
+            with st.status("[STEP 4: LLM's Overall Explanation: PROCESSING...]", expanded=True) as status:
+                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Synthesizing reasoning context... <span style='color:#00FF41'>[Done]</span></span>", unsafe_allow_html=True)
+                st.markdown("<span style='font-family: Consolas, monospace;'>&gt;&gt; Generating natural language explanations via <span style='color:#00FF41'>[LLM]</span>... <span style='color:#00FF41'>[Done]</span></span>", unsafe_allow_html=True)
+                st.info(llm_explanation)
+                status.update(label="[STEP 4: LLM's Overall Explanation: OK]", state="complete", expanded=True)
 
             # Step 3: Generation
             st.divider()
             st.title("🎧 Recommended for You")
             
-            rec_cols = st.columns(3)
-            for idx, (_, row) in enumerate(final_recs.iterrows()):
-                with rec_cols[idx]:
-                    with st.container():
-                        spotify_embed(row['track_id'], height=352)
-                        explanation = utils.generate_explanation(row, selected_song, traits)
-                        st.info(f"{explanation}")
+            rec_count = 0
+            display_limit = 6
+            
+            # Iterate in chunks of 3 for grid layout
+            for i in range(0, min(len(final_recs), display_limit), 3):
+                cols = st.columns(3)
+                chunk_df = final_recs.iloc[i : i+3]
+                
+                for j, (_, row) in enumerate(chunk_df.iterrows()):
+                    with cols[j]:
+                        with st.container():
+                            spotify_embed(row['track_id'], height=352)
+                            # Use LLM reason if available
+                            reason = row.get('reason') if pd.notna(row.get('reason')) else utils.generate_explanation(row, selected_song, traits)
+                            st.info(f"{reason}")
             
             # 4. Visualization (PCA)
             st.divider()
@@ -512,16 +675,20 @@ def main():
     # Load Data
     df_songs = load_data()
     personas = load_personas()
+    persona_summaries = load_persona_summaries()
     
     if df_songs is None or not personas:
         st.warning("請確保資料已正確設定。")
         return
-
-    # Routing Logic
+        
+    index, metadata, model = load_faiss_resources()
+    precomputed_data = load_precomputed_data()
+    
     if st.session_state.selected_persona is None:
-        render_landing_page(personas)
+        render_landing_page(personas, persona_summaries)
     else:
-        render_main_app(df_songs, personas)
+        render_main_app(df_songs, personas, persona_summaries, precomputed_data, index, metadata, model)
+
 
 if __name__ == "__main__":
     main()
