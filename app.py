@@ -672,7 +672,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                     reason = row.get('reason') if pd.notna(
                         row.get('reason')) else utils.generate_explanation(row, selected_song, traits)
                     st.markdown(
-                        f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{row['track_name']}</span> by {row['artists']} (Score: {score:.1f}) <br> <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'> Reason: {reason}</span></span>", unsafe_allow_html=True)
+                        f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{row['track_name']}</span> by {row['artists']} <br> <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'> Reason: {reason}</span></span>", unsafe_allow_html=True)
 
                 status.update(
                     label="[STEP 3: Re-ranked and Filtered Recommendations: OK]", state="complete", expanded=False)
