@@ -591,15 +591,29 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                     label="[STEP 1: Candidates from Pre-computed Similar Items: OK]", state="complete", expanded=False)
 
             # Step 2: Semantic Search (FAISS)
-            with st.status("[STEP 2: Candidates from FAISS Semantic Search: PROCESSING...]", expanded=True) as status:
-                time.sleep(0.5)
-                st.markdown(
-                    "<span style='font-family: Consolas, monospace;'>&gt;&gt; Converting query to vector embedding... <span style='color:#00FF41'>[All-MiniLM-L6-v2]</span></span>", unsafe_allow_html=True)
-                st.markdown(
-                    "<span style='font-family: Consolas, monospace;'>&gt;&gt; Querying <span style='color:#00FF41'>[FAISS]</span> for semantic similarity...</span>", unsafe_allow_html=True)
+            # Step 2: Candidates from FAISS Semantic Search
+            current_song_id = selected_song['track_id']
+            if 'step2_cache' not in st.session_state:
+                st.session_state.step2_cache = {}
+            
+            is_step2_cached = current_song_id in st.session_state.step2_cache
+            step2_label = "[STEP 2: Candidates from FAISS Semantic Search: CACHED]" if is_step2_cached else "[STEP 2: Candidates from FAISS Semantic Search: PROCESSING...]"
 
-                # FAISS Retrieval Logic
-                if faiss_index and faiss_metadata and embedding_model:
+            with st.status(step2_label, expanded=True) as status:
+                step2_candidates = []
+                
+                if is_step2_cached:
+                    step2_candidates = st.session_state.step2_cache[current_song_id]
+                    st.markdown(
+                        f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Cached results found. Loaded <span style='color:#00FF41'>[{len(step2_candidates)}]</span> candidates.</span>", unsafe_allow_html=True)
+                
+                elif faiss_index and faiss_metadata and embedding_model:
+                    time.sleep(0.5)
+                    st.markdown(
+                        "<span style='font-family: Consolas, monospace;'>&gt;&gt; Converting query to vector embedding... <span style='color:#00FF41'>[All-MiniLM-L6-v2]</span></span>", unsafe_allow_html=True)
+                    st.markdown(
+                        "<span style='font-family: Consolas, monospace;'>&gt;&gt; Querying <span style='color:#00FF41'>[FAISS]</span> for semantic similarity...</span>", unsafe_allow_html=True)
+
                     # Construct query: Track Name + Artist + Genre
                     query = f"{selected_song['track_name']} {selected_song['artists']} {selected_song['track_genre']}"
 
@@ -653,21 +667,27 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                             'score': float(score),
                             'rag_doc': meta['rag_doc']
                         })
+                    
+                    # Cache the results
+                    st.session_state.step2_cache[current_song_id] = step2_candidates
 
                     st.markdown(
                         f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Vector search complete. Retrieved <span style='color:#00FF41'>[{len(step2_candidates)}]</span> semantic candidates.</span>", unsafe_allow_html=True)
 
-                    for i, cand in enumerate(step2_candidates):
-                        score = cand['score']
-                        expl_desc = cand['rag_doc'][:70] + \
-                            "..." if len(cand['rag_doc']
-                                         ) > 60 else cand['rag_doc']
-                        st.markdown(
-                            f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{cand['track_name']}</span> by {cand['artists']} (Score: {score:.4f}) <br>  <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'>Desc: {expl_desc}</span></span>", unsafe_allow_html=True)
+
 
                 else:
                     st.error("FAISS resources not loaded.")
                     step2_candidates = []
+
+                # Render Results (Always)
+                for i, cand in enumerate(step2_candidates):
+                    score = cand['score']
+                    expl_desc = cand['rag_doc'][:70] + \
+                        "..." if len(cand['rag_doc']
+                                        ) > 60 else cand['rag_doc']
+                    st.markdown(
+                        f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{cand['track_name']}</span> by {cand['artists']} (Score: {score:.4f}) <br>  <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'>Desc: {expl_desc}</span></span>", unsafe_allow_html=True)
 
                 # Keep expanded so user sees the list
                 status.update(

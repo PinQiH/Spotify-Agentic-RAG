@@ -4,3 +4,4 @@ __pycache__/
 .DS_Store
 .env
 data/sim_items_json/precomputed_similar_songs.json.bak
+data/user_votes.csv
