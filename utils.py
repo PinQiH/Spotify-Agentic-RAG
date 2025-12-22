@@ -605,92 +605,93 @@ def llm_rerank_candidates(df_songs, step1_cands, step2_cands, context_song, pers
     Supports 'openai' and 'openrouter' providers.
     Falls back to rules if API fails.
     """
-    api_key = None
-    base_url = None
-
-    if provider == "openrouter":
-        api_key = os.getenv("OPEN_ROUTER_API_KEY")
-        base_url = "https://openrouter.ai/api/v1"
-        if not api_key:
-            print("Warning: OPEN_ROUTER_API_KEY not found.")
-    else:  # default to openai
-        api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GPT_API_KEY")
-    
-    if not api_key:
-        print(f"Warning: API Key for {provider} not found. Falling back to rule-based reranking.")
-        return rerank_candidates(df_songs, step1_cands, step2_cands, context_song, persona_traits, top_k), "Rule-based fallback (No API Key)"
-
-    # 1. Prepare Candidates
-    # Collect unique candidate IDs from both steps
-    candidate_ids = set()
-    if step1_cands:
-        for c in step1_cands:
-            candidate_ids.add(c['track_id'])
-    if step2_cands:
-        for c in step2_cands:
-            candidate_ids.add(c['track_id'])
-
-    # Filter df_songs for these candidates
-    candidates_df = df_songs[df_songs['track_id'].isin(candidate_ids)].copy()
-
-    # If not enough candidates, add random ones
-    if len(candidates_df) < top_k:
-        remaining = top_k - len(candidates_df)
-        random_filler = df_songs[~df_songs['track_id'].isin(
-            candidate_ids)].sample(min(remaining, len(df_songs)))
-        candidates_df = pd.concat([candidates_df, random_filler])
-
-    # Convert candidates to compact JSON for Prompt
-    candidates_list = []
-    for _, row in candidates_df.iterrows():
-        candidates_list.append({
-            "track_id": row['track_id'],
-            "track_name": row['track_name'],
-            "artists": row['artists'],
-            "genre": row['track_genre'],
-            "bpm": f"{row['tempo']:.0f}",
-            "features": f"Energy:{row.get('energy',0):.2f}, Valence:{row.get('valence',0):.2f}"
-        })
-    candidates_str = json.dumps(candidates_list, ensure_ascii=False)
-
-    # 2. Construct Prompt
-    # Simplify persona traits for prompt
-    persona_summary = f"Top Genres: {', '.join(persona_traits.get('top_genres', []))}. " \
-                      f"Top Artists: {', '.join(persona_traits.get('top_artists', []))}. " \
-                      f"Preferred Properties: {persona_traits.get('audio_properties', {})}"
-
-    current_song_str = f"{context_song['track_name']} by {context_song['artists']} (Genre: {context_song['track_genre']}, BPM: {context_song['tempo']:.0f})"
-
-    prompt = f"""
-    You are an expert music recommender system (Agentic RAG).
-    
-    Context:
-    - User Persona: {persona_summary}
-    - Current Song: {current_song_str}
-    
-    Task:
-    Select the best {top_k} songs from the CANDIDATES list below to recommend next.
-    Rank them by relevance to the User Persona and continuity with the Current Song.
-    
-    CANDIDATES:
-    {candidates_str}
-    
-    Output Format:
-    Return ONLY a raw JSON string (no markdown formatting) with this structure:
-    {{
-        "recommendations": [
-            {{
-                "track_id": "...",
-                "reason": "Write a short, engaging reason (in Traditional Chinese) citing specific features (BPM, Genre, Mood) why this fits."
-            }},
-            ...
-        ],
-        "explanation": "Briefly summarize your overall recommendation strategy and how these choices fit the user persona (in Traditional Chinese)."
-    }}
-    """
-
-    # 3. Call LLM
     try:
+        api_key = None
+        base_url = None
+
+        if provider == "openrouter":
+            api_key = os.getenv("OPEN_ROUTER_API_KEY")
+            base_url = "https://openrouter.ai/api/v1"
+            if not api_key:
+                print("Warning: OPEN_ROUTER_API_KEY not found.")
+        else:  # default to openai
+            api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GPT_API_KEY")
+        
+        if not api_key:
+            print(f"Warning: API Key for {provider} not found. Falling back to rule-based reranking.")
+            return rerank_candidates(df_songs, step1_cands, step2_cands, context_song, persona_traits, top_k), "Rule-based fallback (No API Key)"
+
+        # 1. Prepare Candidates
+        # Collect unique candidate IDs from both steps
+        candidate_ids = set()
+        if step1_cands:
+            for c in step1_cands:
+                candidate_ids.add(c['track_id'])
+        if step2_cands:
+            for c in step2_cands:
+                candidate_ids.add(c['track_id'])
+
+        # Filter df_songs for these candidates
+        candidates_df = df_songs[df_songs['track_id'].isin(candidate_ids)].copy()
+
+        # If not enough candidates, add random ones
+        if len(candidates_df) < top_k:
+            remaining = top_k - len(candidates_df)
+            random_filler = df_songs[~df_songs['track_id'].isin(
+                candidate_ids)].sample(min(remaining, len(df_songs)))
+            candidates_df = pd.concat([candidates_df, random_filler])
+
+        # Convert candidates to compact JSON for Prompt
+        candidates_list = []
+        for _, row in candidates_df.iterrows():
+            # Explicitly cast to native types to avoid JSON serialization TypeError (int64/float32)
+            candidates_list.append({
+                "track_id": str(row['track_id']),
+                "track_name": str(row['track_name']),
+                "artists": str(row['artists']),
+                "genre": str(row['track_genre']),
+                "bpm": f"{row['tempo']:.0f}",
+                "features": f"Energy:{row.get('energy',0):.2f}, Valence:{row.get('valence',0):.2f}"
+            })
+        candidates_str = json.dumps(candidates_list, ensure_ascii=False)
+
+        # 2. Construct Prompt
+        # Simplify persona traits for prompt
+        persona_summary = f"Top Genres: {', '.join(persona_traits.get('top_genres', []))}. " \
+                          f"Top Artists: {', '.join(persona_traits.get('top_artists', []))}. " \
+                          f"Preferred Properties: {persona_traits.get('audio_properties', {})}"
+
+        current_song_str = f"{context_song['track_name']} by {context_song['artists']} (Genre: {context_song['track_genre']}, BPM: {context_song['tempo']:.0f})"
+
+        prompt = f"""
+        You are an expert music recommender system (Agentic RAG).
+        
+        Context:
+        - User Persona: {persona_summary}
+        - Current Song: {current_song_str}
+        
+        Task:
+        Select the best {top_k} songs from the CANDIDATES list below to recommend next.
+        Rank them by relevance to the User Persona and continuity with the Current Song.
+        
+        CANDIDATES:
+        {candidates_str}
+        
+        Output Format:
+        Return ONLY a raw JSON string (no markdown formatting) with this structure:
+        {{
+            "recommendations": [
+                {{
+                    "track_id": "...",
+                    "reason": "Write a short, engaging reason (in Traditional Chinese) citing specific features (BPM, Genre, Mood) why this fits."
+                }},
+                ...
+            ],
+            "explanation": "Briefly summarize your overall recommendation strategy and how these choices fit the user persona (in Traditional Chinese)."
+        }}
+        """
+
+        # 3. Call LLM
         if base_url:
             client = openai.OpenAI(api_key=api_key, base_url=base_url)
         else:
@@ -724,8 +725,9 @@ def llm_rerank_candidates(df_songs, step1_cands, step2_cands, context_song, pers
             track_id = rec.get("track_id")
             reason = rec.get("reason", "AI Recommended")
 
-            # Find the song row
-            song_row = candidates_df[candidates_df['track_id'] == track_id]
+            # Find the song row (ensure type matching for ID)
+            # Normalize ID to str for reliable lookup
+            song_row = candidates_df[candidates_df['track_id'].astype(str) == str(track_id)]
             if not song_row.empty:
                 song_data = song_row.iloc[0].to_dict()
                 song_data['reason'] = reason
@@ -741,6 +743,8 @@ def llm_rerank_candidates(df_songs, step1_cands, step2_cands, context_song, pers
             return rerank_candidates(df_songs, step1_cands, step2_cands, context_song, persona_traits, top_k), "LLM returned no valid recommendations."
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"LLM Rerank Failed: {e}. Using rule-based.")
         return rerank_candidates(df_songs, step1_cands, step2_cands, context_song, persona_traits, top_k), f"LLM Rerank Failed: {e}"
 
