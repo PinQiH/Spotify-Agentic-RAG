@@ -659,20 +659,44 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                 if 'step1_candidates' not in locals():
                     step1_candidates = []
 
-                st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#FF00FF'>GPT-4o Agent</span> for re-ranking...</span>", unsafe_allow_html=True)
-                final_recs, llm_explanation = utils.llm_rerank_candidates(
-                    df_songs, step1_candidates, step2_candidates, selected_song, traits, top_k=20)
+                # LLM Comparison Columns
+                col_gpt, col_gemini, col_grok = st.columns(3)
 
-                st.markdown(
-                    f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Re-ranking complete. Selected top <span style='color:#00FF41'>[{len(final_recs)}]</span> candidates based on <span style='color:#00FF41'>[User_History_Preference]</span>.</span>", unsafe_allow_html=True)
+                # Column 1: GPT-4o (Active)
+                with col_gpt:
+                    st.markdown("### 🤖 GPT-4o")
+                    st.caption("(Active Implementation)")
+                    st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#FF00FF'>GPT-4o Agent</span> for re-ranking...</span>", unsafe_allow_html=True)
+                    
+                    final_recs, llm_explanation = utils.llm_rerank_candidates(
+                        df_songs, step1_candidates, step2_candidates, selected_song, traits, top_k=20)
 
-                for i, (_, row) in enumerate(final_recs.iterrows()):
-                    score = row.get('ranking_score', 0)
-                    # Use LLM reason if available, else fallback to template
-                    reason = row.get('reason') if pd.notna(
-                        row.get('reason')) else utils.generate_explanation(row, selected_song, traits)
                     st.markdown(
-                        f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{row['track_name']}</span> by {row['artists']} <br> <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'> Reason: {reason}</span></span>", unsafe_allow_html=True)
+                        f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Re-ranking complete. Selected top <span style='color:#00FF41'>[{len(final_recs)}]</span> candidates based on <span style='color:#00FF41'>[User_History_Preference]</span>.</span>", unsafe_allow_html=True)
+
+                    for i, (_, row) in enumerate(final_recs.iterrows()):
+                        score = row.get('ranking_score', 0)
+                        # Use LLM reason if available, else fallback to template
+                        reason = row.get('reason') if pd.notna(
+                            row.get('reason')) else utils.generate_explanation(row, selected_song, traits)
+                        st.markdown(
+                            f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{row['track_name']}</span> by {row['artists']} <br> <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'> Reason: {reason}</span></span>", unsafe_allow_html=True)
+
+                # Column 2: Gemini 2.0 Flash (Placeholder)
+                with col_gemini:
+                    st.markdown("### ⚡ Gemini 2.0 Flash")
+                    st.caption("(Coming Soon)")
+                    st.info("Performance comparison pending integration.")
+                    st.markdown(
+                        f"<span style='font-family: Consolas, monospace; color:#888;'>&gt;&gt; Waiting for model availability...</span>", unsafe_allow_html=True)
+
+                # Column 3: Grok 4.1 Fast (Placeholder)
+                with col_grok:
+                    st.markdown("### 🚀 Grok 4.1 Fast")
+                    st.caption("(Coming Soon)")
+                    st.info("Performance comparison pending integration.")
+                    st.markdown(
+                        f"<span style='font-family: Consolas, monospace; color:#888;'>&gt;&gt; Waiting for model availability...</span>", unsafe_allow_html=True)
 
                 status.update(
                     label="[STEP 3: Re-ranked and Filtered Recommendations: OK]", state="complete", expanded=False)

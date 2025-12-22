@@ -421,7 +421,12 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
 
     fig.update_layout(
         paper_bgcolor='#121212',  # Force dark background, no transparency
-        plot_bgcolor='#121212'
+        plot_bgcolor='#121212',
+        font=dict(
+            family="'Circular', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+            size=12,
+            color="white"
+        )
     )
 
     # Hide background points by default; users can toggle via legend
