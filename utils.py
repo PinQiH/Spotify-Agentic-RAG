@@ -422,6 +422,10 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
     fig.update_layout(
         paper_bgcolor='#121212',  # Force dark background, no transparency
         plot_bgcolor='#121212',
+        height=700,  # Fixed height to match UI iframe
+        width=900,   # Fixed width to match UI iframe
+        autosize=False,
+        margin=dict(l=20, r=20, t=50, b=20),  # Consistent margins
         font=dict(
             family="'Circular', 'Helvetica Neue', Helvetica, Arial, sans-serif",
             size=12,
@@ -595,14 +599,25 @@ def rerank_candidates(df_songs, step1_cands, step2_cands, context_song, persona_
     return final_recs
 
 
-def llm_rerank_candidates(df_songs, step1_cands, step2_cands, context_song, persona_traits, top_k=3):
+def llm_rerank_candidates(df_songs, step1_cands, step2_cands, context_song, persona_traits, top_k=3, model_name="gpt-4o", provider="openai"):
     """
-    Uses GPT-4o to re-rank candidates based on persona and context.
+    Uses an LLM to re-rank candidates based on persona and context.
+    Supports 'openai' and 'openrouter' providers.
     Falls back to rules if API fails.
     """
-    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GPT_API_KEY")
+    api_key = None
+    base_url = None
+
+    if provider == "openrouter":
+        api_key = os.getenv("OPEN_ROUTER_API_KEY")
+        base_url = "https://openrouter.ai/api/v1"
+        if not api_key:
+            print("Warning: OPEN_ROUTER_API_KEY not found.")
+    else:  # default to openai
+        api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GPT_API_KEY")
+    
     if not api_key:
-        print("Warning: OPENAI_API_KEY not found. Falling back to rule-based reranking.")
+        print(f"Warning: API Key for {provider} not found. Falling back to rule-based reranking.")
         return rerank_candidates(df_songs, step1_cands, step2_cands, context_song, persona_traits, top_k), "Rule-based fallback (No API Key)"
 
     # 1. Prepare Candidates
@@ -676,15 +691,20 @@ def llm_rerank_candidates(df_songs, step1_cands, step2_cands, context_song, pers
 
     # 3. Call LLM
     try:
-        client = openai.OpenAI(api_key=api_key)
+        if base_url:
+            client = openai.OpenAI(api_key=api_key, base_url=base_url)
+        else:
+            client = openai.OpenAI(api_key=api_key)
+            
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model=model_name,
             messages=[
                 {"role": "system", "content": "You are a helpful music recommendation assistant. Output JSON only."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.7,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+            timeout=60
         )
         content = response.choices[0].message.content
 
@@ -723,3 +743,29 @@ def llm_rerank_candidates(df_songs, step1_cands, step2_cands, context_song, pers
     except Exception as e:
         print(f"LLM Rerank Failed: {e}. Using rule-based.")
         return rerank_candidates(df_songs, step1_cands, step2_cands, context_song, persona_traits, top_k), f"LLM Rerank Failed: {e}"
+
+def save_vote_to_csv(vote_data, filepath="data/user_votes.csv"):
+    """
+    Appends a new vote record to the CSV file.
+    vote_data: dict containing 'timestamp', 'persona', 'selected_song', 'reason_vote', 'song_vote', etc.
+    """
+    file_exists = os.path.isfile(filepath)
+    df = pd.DataFrame([vote_data])
+    
+    # Append to CSV, add header only if file does not exist
+    df.to_csv(filepath, mode='a', header=not file_exists, index=False, encoding='utf-8-sig')
+
+
+def load_vote_stats(filepath="data/user_votes.csv"):
+    """
+    Loads voting data and returns aggregated statistics.
+    Returns: DataFrame of votes, or None if file doesn't exist.
+    """
+    if not os.path.exists(filepath):
+        return None
+    
+    try:
+        return pd.read_csv(filepath, encoding='utf-8-sig')
+    except Exception as e:
+        print(f"Error loading votes: {e}")
+        return None

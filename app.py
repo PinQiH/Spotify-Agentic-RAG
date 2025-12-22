@@ -616,10 +616,36 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                     found_indices = I[0]
                     scores = D[0]
 
+                    # Deduplication set: Current song + Step 1 Candidates
+                    existing_ids = set()
+                    existing_keys = set()
+                    
+                    def normalize_key(name, artist):
+                        return (name.strip().lower(), artist.strip().lower())
+
+                    # Add current song
+                    existing_ids.add(selected_song['track_id'])
+                    existing_keys.add(normalize_key(selected_song['track_name'], selected_song['artists']))
+
+                    if 'step1_candidates' in locals():
+                        for c in step1_candidates:
+                            existing_ids.add(c['track_id'])
+                            existing_keys.add(normalize_key(c['track_name'], c['artists']))
+
                     for score, idx in zip(scores, found_indices):
                         if idx == -1:
                             continue
                         meta = faiss_metadata[idx]
+                        
+                        # Filter duplicates
+                        current_key = normalize_key(meta['track_name'], meta['artists'])
+                        if meta['track_id'] in existing_ids or current_key in existing_keys:
+                            continue
+                            
+                        # Add to existing to prevent duplicates within Step 2 itself
+                        existing_ids.add(meta['track_id'])
+                        existing_keys.add(current_key)
+
                         step2_candidates.append({
                             'track_id': meta['track_id'],
                             'track_name': meta['track_name'],
@@ -659,44 +685,109 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                 if 'step1_candidates' not in locals():
                     step1_candidates = []
 
+                # Prepare Parallel Execution
+                # Prepare Parallel Execution
+                import concurrent.futures
+                from streamlit.runtime.scriptrunner import add_script_run_ctx
+                
+                # Helper function for parallel execution
+                def fetch_recommendations(model_name, provider, col_name):
+                    return utils.llm_rerank_candidates(
+                        df_songs, step1_candidates, step2_candidates, selected_song, traits, top_k=20,
+                        model_name=model_name, provider=provider
+                    )
+
                 # LLM Comparison Columns
                 col_gpt, col_gemini, col_grok = st.columns(3)
-
-                # Column 1: GPT-4o (Active)
+                
+                # Display Headers immediately
                 with col_gpt:
                     st.markdown("### 🤖 GPT-4o")
-                    st.caption("(Active Implementation)")
-                    st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#FF00FF'>GPT-4o Agent</span> for re-ranking...</span>", unsafe_allow_html=True)
+                    st.caption("(Active via OpenAI)")
+                    st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#FF00FF'>GPT-4o Agent</span>...</span>", unsafe_allow_html=True)
+                with col_gemini:
+                    st.markdown("### ⚡ Gemini 2.0 Flash")
+                    st.caption("(Active via OpenRouter)")
+                    st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#FFD700'>Gemini 2.0 Flash</span>...</span>", unsafe_allow_html=True)
+                with col_grok:
+                    st.markdown("### 🚀 Grok 4.1 Fast")
+                    st.caption("(Active via OpenRouter)")
+                    st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#00BFFF'>Grok 4.1 Fast</span>...</span>", unsafe_allow_html=True)
+                
+                # Execute in parallel or load from cache
+                current_song_id = selected_song['track_id']
+                
+                if 'llm_results' not in st.session_state:
+                    st.session_state.llm_results = {}
+                
+                # Check cache
+                cached_res = st.session_state.llm_results.get(current_song_id)
+                
+                if cached_res:
+                    st.success("✅ Loaded cached recommendations.")
+                    gpt_res = cached_res['gpt']
+                    gemini_res = cached_res['gemini']
+                    grok_res = cached_res['grok']
+                else:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                        future_gpt = executor.submit(add_script_run_ctx(fetch_recommendations), "gpt-4o", "openai", "GPT-4o")
+                        future_gemini = executor.submit(add_script_run_ctx(fetch_recommendations), "google/gemini-2.0-flash-001", "openrouter", "Gemini")
+                        future_grok = executor.submit(add_script_run_ctx(fetch_recommendations), "x-ai/grok-4.1-fast", "openrouter", "Grok")
+                        
+                        # Wait for results
+                        gpt_res = future_gpt.result()
+                        gemini_res = future_gemini.result()
+                        grok_res = future_grok.result()
                     
-                    final_recs, llm_explanation = utils.llm_rerank_candidates(
-                        df_songs, step1_candidates, step2_candidates, selected_song, traits, top_k=20)
+                    # Cache results
+                    st.session_state.llm_results[current_song_id] = {
+                        'gpt': gpt_res,
+                        'gemini': gemini_res,
+                        'grok': grok_res
+                    }
+
+                # Render GPT Results
+                with col_gpt:
+                    final_recs, llm_explanation = gpt_res
+                    if "Rule-based fallback" in llm_explanation or "LLM Rerank Failed" in llm_explanation:
+                        st.warning(f"⚠️ {llm_explanation}")
 
                     st.markdown(
-                        f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Re-ranking complete. Selected top <span style='color:#00FF41'>[{len(final_recs)}]</span> candidates based on <span style='color:#00FF41'>[User_History_Preference]</span>.</span>", unsafe_allow_html=True)
+                        f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Re-ranking complete. <span style='color:#00FF41'>[{len(final_recs)}]</span> candidates.</span>", unsafe_allow_html=True)
 
                     for i, (_, row) in enumerate(final_recs.iterrows()):
-                        score = row.get('ranking_score', 0)
-                        # Use LLM reason if available, else fallback to template
                         reason = row.get('reason') if pd.notna(
                             row.get('reason')) else utils.generate_explanation(row, selected_song, traits)
                         st.markdown(
                             f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{row['track_name']}</span> by {row['artists']} <br> <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'> Reason: {reason}</span></span>", unsafe_allow_html=True)
 
-                # Column 2: Gemini 2.0 Flash (Placeholder)
+                # Render Gemini Results
                 with col_gemini:
-                    st.markdown("### ⚡ Gemini 2.0 Flash")
-                    st.caption("(Coming Soon)")
-                    st.info("Performance comparison pending integration.")
-                    st.markdown(
-                        f"<span style='font-family: Consolas, monospace; color:#888;'>&gt;&gt; Waiting for model availability...</span>", unsafe_allow_html=True)
+                    final_recs_gemini, gemini_explanation = gemini_res
+                    if "Rule-based fallback" in gemini_explanation or "LLM Rerank Failed" in gemini_explanation:
+                        st.warning(f"⚠️ {gemini_explanation}")
 
-                # Column 3: Grok 4.1 Fast (Placeholder)
-                with col_grok:
-                    st.markdown("### 🚀 Grok 4.1 Fast")
-                    st.caption("(Coming Soon)")
-                    st.info("Performance comparison pending integration.")
                     st.markdown(
-                        f"<span style='font-family: Consolas, monospace; color:#888;'>&gt;&gt; Waiting for model availability...</span>", unsafe_allow_html=True)
+                        f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Re-ranking complete. <span style='color:#00FF41'>[{len(final_recs_gemini)}]</span> candidates.</span>", unsafe_allow_html=True)
+
+                    for i, (_, row) in enumerate(final_recs_gemini.iterrows()):
+                        reason = row.get('reason') if pd.notna(row.get('reason')) else "AI Recommended"
+                        st.markdown(
+                            f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{row['track_name']}</span> by {row['artists']} <br> <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'> Reason: {reason}</span></span>", unsafe_allow_html=True)
+
+                # Render Grok Results
+                with col_grok:
+                    final_recs_grok, grok_explanation = grok_res
+                    if "Rule-based fallback" in grok_explanation or "LLM Rerank Failed" in grok_explanation:
+                        st.warning(f"⚠️ {grok_explanation}")
+                    
+                    st.markdown(
+                        f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Re-ranking complete. <span style='color:#00FF41'>[{len(final_recs_grok)}]</span> candidates.</span>", unsafe_allow_html=True)
+                    
+                    for i, (_, row) in enumerate(final_recs_grok.iterrows()):
+                        reason = row.get('reason') if pd.notna(row.get('reason')) else "AI Recommended"
+                        st.markdown(
+                            f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{row['track_name']}</span> by {row['artists']} <br> <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'> Reason: {reason}</span></span>", unsafe_allow_html=True)
 
                 status.update(
                     label="[STEP 3: Re-ranked and Filtered Recommendations: OK]", state="complete", expanded=False)
@@ -707,7 +798,21 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                     "<span style='font-family: Consolas, monospace;'>&gt;&gt; Synthesizing reasoning context... <span style='color:#00FF41'>[Done]</span></span>", unsafe_allow_html=True)
                 st.markdown(
                     "<span style='font-family: Consolas, monospace;'>&gt;&gt; Generating natural language explanations via <span style='color:#00FF41'>[LLM]</span>... <span style='color:#00FF41'>[Done]</span></span>", unsafe_allow_html=True)
-                st.info(llm_explanation)
+                
+                exp_col1, exp_col2, exp_col3 = st.columns(3)
+                
+                with exp_col1:
+                    st.markdown("**GPT-4o Reasoning**")
+                    st.info(llm_explanation)
+                
+                with exp_col2:
+                    st.markdown("**Gemini 2.0 Flash Reasoning**")
+                    st.info(gemini_explanation)
+                
+                with exp_col3:
+                    st.markdown("**Grok 4.1 Fast Reasoning**")
+                    st.info(grok_explanation)
+
                 status.update(
                     label="[STEP 4: LLM's Overall Explanation: OK]", state="complete", expanded=True)
 
@@ -719,18 +824,31 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
             display_limit = 6
 
             # Iterate in chunks of 3 for grid layout
-            for i in range(0, min(len(final_recs), display_limit), 3):
-                cols = st.columns(3)
-                chunk_df = final_recs.iloc[i: i+3]
+            rec_tabs = st.tabs(["GPT-4o", "Gemini 2.0 Flash", "Grok 4.1 Fast"])
+            
+            def display_recommendations(recs_df):
+                if recs_df is None or recs_df.empty:
+                    st.info("No recommendations available.")
+                    return
+                for i in range(0, min(len(recs_df), display_limit), 3):
+                    cols = st.columns(3)
+                    chunk_df = recs_df.iloc[i: i+3]
 
-                for j, (_, row) in enumerate(chunk_df.iterrows()):
-                    with cols[j]:
-                        with st.container():
-                            spotify_embed(row['track_id'], height=352)
-                            # Use LLM reason if available
-                            reason = row.get('reason') if pd.notna(
-                                row.get('reason')) else utils.generate_explanation(row, selected_song, traits)
-                            st.info(f"{reason}")
+                    for j, (_, row) in enumerate(chunk_df.iterrows()):
+                        with cols[j]:
+                            with st.container():
+                                spotify_embed(row['track_id'], height=352)
+                                # Use LLM reason if available
+                                reason = row.get('reason') if pd.notna(
+                                    row.get('reason')) else utils.generate_explanation(row, selected_song, traits)
+                                st.info(f"{reason}")
+
+            with rec_tabs[0]:
+                display_recommendations(final_recs)
+            with rec_tabs[1]:
+                display_recommendations(final_recs_gemini)
+            with rec_tabs[2]:
+                display_recommendations(final_recs_grok)
 
             # 4. Visualization (PCA)
             st.divider()
@@ -738,35 +856,111 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
 
             with st.spinner("Generating Embedding Space Visualization..."):
                 try:
-                    viz_recs = final_recs.head(6)
-                    fig = utils.plot_pca_visualization(
-                        df_songs,
-                        selected_song,
-                        viz_recs,
-                        user_history=history,
-                        step1_cands=step1_candidates,
-                        step2_cands=step2_candidates,
-                        df_pca=df_pca
-                    )
-                    # st.plotly_chart(fig, use_container_width=True)
+                    viz_tabs = st.tabs(["GPT-4o", "Gemini 2.0 Flash", "Grok 4.1 Fast"])
+                    
+                    def render_viz(recs_df, key_suffix):
+                        if recs_df is None or recs_df.empty:
+                            st.warning("No data for visualization.")
+                            return
 
-                    # Save interactive plot to HTML (similar to test_pca_plot.py)
-                    output_file = os.path.join(BASE_DIR, "pca_plot.html")
-                    pio.write_html(fig, output_file)
-                    # st.caption(f"PCA plot exported to {output_file}")
+                        viz_recs = recs_df.head(6)
+                        fig = utils.plot_pca_visualization(
+                            df_songs,
+                            selected_song,
+                            viz_recs,
+                            user_history=history,
+                            step1_cands=step1_candidates,
+                            step2_cands=step2_candidates,
+                            df_pca=df_pca
+                        )
 
-                    # Embed the saved HTML via iframe-like component
-                    try:
-                        with open(output_file, "r", encoding="utf-8") as f:
-                            html_content = f.read()
-                        components.html(
-                            html_content, height=720, scrolling=True)
-                    except Exception as embed_err:
-                        st.warning(f"無法載入 PCA HTML：{embed_err}")
+                        # Save interactive plot to HTML (unique file per tab to avoid collision if run fast)
+                        output_file = os.path.join(BASE_DIR, f"pca_plot_{key_suffix}.html")
+                        pio.write_html(fig, output_file)
+
+                        # Embed the saved HTML via iframe-like component
+                        try:
+                            with open(output_file, "r", encoding="utf-8") as f:
+                                html_content = f.read()
+                            components.html(html_content, width=900, height=700, scrolling=True)
+                        except Exception as embed_err:
+                            st.warning(f"無法載入 PCA HTML：{embed_err}")
+
+                    with viz_tabs[0]:
+                        render_viz(final_recs, "gpt")
+                    with viz_tabs[1]:
+                        render_viz(final_recs_gemini, "gemini")
+                    with viz_tabs[2]:
+                        render_viz(final_recs_grok, "grok")
+
                 except Exception as e:
                     import traceback
                     st.error(f"Visualization Error: {e}")
                     st.code(traceback.format_exc())
+
+            # 5. Voting System
+            st.divider()
+            
+            with st.expander("🗳️ 我要投票"):
+                with st.container(border=True):
+                    st.markdown("### 📝 模型評選投票")
+                    st.info("""
+                    **請依照以下流程進行評選：**
+                    1. 🎧 **聆聽** 左方「最近收聽紀錄」中的歌曲，及當前播放歌曲。
+                    2. 👁️ **閱讀** [STEP 4] 三個模型的「推薦理由」。
+                    3. 🎵 **試聽** [Recommended for You] 三個模型的「推薦歌單」。
+                    4. 👇 **選擇** 下方您覺得表現最好的模型並送出。
+                    """)
+
+                    with st.form("vote_form"):
+                        st.subheader("1. 最佳推薦理由 (Reasoning)")
+                        reason_vote = st.radio(
+                            "您覺得哪個模型給的推薦理由最符合您的口味？",
+                            ["GPT-4o", "Gemini 2.0 Flash", "Grok 4.1 Fast"],
+                            horizontal=True,
+                            key="reason_vote_radio"
+                        )
+                        
+                        st.divider()
+                        
+                        st.subheader("2. 最佳推薦歌曲 (Songs)")
+                        song_vote = st.radio(
+                            "您覺得哪個模型的推薦歌單最符合您的口味？",
+                            ["GPT-4o", "Gemini 2.0 Flash", "Grok 4.1 Fast"],
+                            horizontal=True,
+                            key="song_vote_radio"
+                        )
+
+                        submitted = st.form_submit_button("➤", use_container_width=True)
+                        
+                        if submitted:
+                            import datetime
+                            vote_data = {
+                                "timestamp": datetime.datetime.now().isoformat(),
+                                "persona": selected_persona_name,
+                                # "selected_song_id": selected_song['track_id'],
+                                "selected_song_name": selected_song['track_name'],
+                                "vote_reason": reason_vote,
+                                "vote_song": song_vote
+                            }
+                            utils.save_vote_to_csv(vote_data)
+                            st.success("🎉 投票成功！感謝您的回饋。")
+
+            st.divider()
+            with st.expander("查看投票統計結果"):
+                df_votes = utils.load_vote_stats()
+                if df_votes is not None and not df_votes.empty:
+                    st.markdown("#### 推薦理由 (Reasoning) 得票數")
+                    st.bar_chart(df_votes['vote_reason'].value_counts())
+                    
+                    st.markdown("#### 推薦歌單 (Songs) 得票數")
+                    st.bar_chart(df_votes['vote_song'].value_counts())
+                    
+                    st.markdown("#### 詳細投票紀錄")
+                    st.dataframe(df_votes.tail(10))
+                else:
+                    st.info("目前尚無投票資料。")
+
 
 
 def main():
