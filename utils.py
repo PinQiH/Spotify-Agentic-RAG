@@ -430,6 +430,15 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
             family="'Circular', 'Helvetica Neue', Helvetica, Arial, sans-serif",
             size=12,
             color="white"
+        ),
+        legend=dict(
+            bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white')
+        ),
+        hoverlabel=dict(
+            bgcolor="#121212",
+            font_color="white",
+            bordercolor="#555555"       
         )
     )
 

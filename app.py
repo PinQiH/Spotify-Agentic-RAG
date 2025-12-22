@@ -674,7 +674,11 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                     label="[STEP 2: Candidates from FAISS Semantic Search: OK]", state="complete", expanded=True)
 
             # Step 3: Re-ranking & Filtering
-            with st.status("[STEP 3: Re-ranked and Filtered Recommendations: PROCESSING...]", expanded=True) as status:
+            current_song_id = selected_song['track_id']
+            is_cached = current_song_id in st.session_state.get('llm_results', {})
+            step3_label = "[STEP 3: Re-ranked and Filtered Recommendations: CACHED]" if is_cached else "[STEP 3: Re-ranked and Filtered Recommendations: PROCESSING...]"
+            
+            with st.status(step3_label, expanded=True) as status:
                 time.sleep(0.5)
                 st.markdown(
                     f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Loading persona profile: <span style='color:#00FF41'>['{selected_persona_name}']</span></span>", unsafe_allow_html=True)
@@ -715,7 +719,6 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                     st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#00BFFF'>Grok 4.1 Fast</span>...</span>", unsafe_allow_html=True)
                 
                 # Execute in parallel or load from cache
-                current_song_id = selected_song['track_id']
                 
                 if 'llm_results' not in st.session_state:
                     st.session_state.llm_results = {}
@@ -882,7 +885,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                         try:
                             with open(output_file, "r", encoding="utf-8") as f:
                                 html_content = f.read()
-                            components.html(html_content, width=900, height=700, scrolling=True)
+                            components.html(html_content, width=950, height=750, scrolling=True)
                         except Exception as embed_err:
                             st.warning(f"無法載入 PCA HTML：{embed_err}")
 
@@ -945,8 +948,12 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                             }
                             utils.save_vote_to_csv(vote_data)
                             st.success("🎉 投票成功！感謝您的回饋。")
+                            components.html("""
+                                <script>
+                                    window.parent.document.querySelector('section.main').scrollTo(0, 0);
+                                </script>
+                            """, height=0)
 
-            st.divider()
             with st.expander("查看投票統計結果"):
                 df_votes = utils.load_vote_stats()
                 if df_votes is not None and not df_votes.empty:
