@@ -729,7 +729,13 @@ def llm_rerank_candidates(df_songs, step1_cands, step2_cands, context_song, pers
             response_format={"type": "json_object"},
             timeout=60
         )
-        content = response.choices[0].message.content
+        # Defensive checks: response/choices/content might be None on provider errors
+        if not response or not getattr(response, "choices", None):
+            raise ValueError("LLM response is empty")
+        first_choice = response.choices[0]
+        content = getattr(first_choice, "message", None).content if getattr(first_choice, "message", None) else None
+        if not content:
+            raise ValueError("LLM response missing content")
 
         parsed = json.loads(content)
         recommendations = parsed.get("recommendations", [])
