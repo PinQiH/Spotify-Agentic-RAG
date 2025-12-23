@@ -740,7 +740,8 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
             is_cached = current_song_id in st.session_state.get('llm_results', {})
             step3_label = "[STEP 3: Re-ranked and Filtered Recommendations: CACHED]" if is_cached else "[STEP 3: Re-ranked and Filtered Recommendations: PROCESSING...]"
             
-            with st.status(step3_label, expanded=True) as status:
+            # Auto-expand only if processing (not cached)
+            with st.status(step3_label, expanded=not is_cached) as status:
                 time.sleep(0.5)
                 st.markdown(
                     f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Loading persona profile: <span style='color:#00FF41'>['{selected_persona_name}']</span></span>", unsafe_allow_html=True)
