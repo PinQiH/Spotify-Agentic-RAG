@@ -281,26 +281,26 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
     all_ids_in_plot = set(plot_df['track_id'])
 
     # Layer 1: User History
-    plot_df.loc[plot_df['track_id'].isin(hist_ids), 'Type'] = 'User History'
+    plot_df.loc[plot_df['track_id'].isin(hist_ids), 'Type'] = 'History'
     plot_df.loc[plot_df['track_id'].isin(hist_ids), 'Size'] = 4
 
     # Layer 2: Pre-computed
     plot_df.loc[plot_df['track_id'].isin(
-        step1_ids), 'Type'] = 'Pre-computed Similar Candidates'
+        step1_ids), 'Type'] = 'Step 1 (Similar)'
     plot_df.loc[plot_df['track_id'].isin(step1_ids), 'Size'] = 6
 
     # Layer 3: FAISS
     plot_df.loc[plot_df['track_id'].isin(
-        step2_ids), 'Type'] = 'FAISS Search Candidates'
+        step2_ids), 'Type'] = 'Step 2 (Semantic)'
     plot_df.loc[plot_df['track_id'].isin(step2_ids), 'Size'] = 6
 
     # Layer 4: Re-ranked Recommendations (Winner)
     plot_df.loc[plot_df['track_id'].isin(
-        rec_ids), 'Type'] = 'Re-ranked Recommendations'
+        rec_ids), 'Type'] = 'Step 3 (Re-ranked)'
     plot_df.loc[plot_df['track_id'].isin(rec_ids), 'Size'] = 8
 
     # Layer 5: Current Playing (Top)
-    plot_df.loc[plot_df['track_id'] == context_id, 'Type'] = 'Current Playing'
+    plot_df.loc[plot_df['track_id'] == context_id, 'Type'] = 'Now Playing'
     plot_df.loc[plot_df['track_id'] == context_id, 'Size'] = 12
 
     # If some highlight IDs are missing from plot_df (e.g., not in df_songs), try to append them using df_pca

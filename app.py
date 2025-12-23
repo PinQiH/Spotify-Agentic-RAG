@@ -945,7 +945,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                             return
                         
                         # Unique cache key for this specific plot
-                        cache_key = f"{current_song_id}_{key_suffix}"
+                        cache_key = f"{current_song_id}_{key_suffix}_v2"
                         html_output_path = os.path.join(BASE_DIR, f"pca_plot_{key_suffix}.html")
                         
                         # Check if we have cached HTML content or need to regenerate
