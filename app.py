@@ -508,6 +508,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                         if st.button("▶", key=f"btn_{row['track_id']}"):
                             st.session_state.selected_song = row
                             st.session_state.analysis_done = True  # Auto-start analysis
+                            st.session_state.scroll_to_now_playing = True # Trigger scroll
                             st.rerun()
 
         # Pagination Controls
@@ -551,17 +552,18 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
 
         st.title("🎵 Now Playing")
 
-        # Inject Auto-scroll JS if analysis just started
-        if st.session_state.analysis_done:
+        # Inject Auto-scroll JS if analysis just started (One-time trigger)
+        if st.session_state.get('scroll_to_now_playing', False):
             components.html(
                 f"""
                 <script>
-                    // {time.time()}
                     window.parent.document.getElementById('now-playing-section').scrollIntoView({{behavior: 'smooth'}});
                 </script>
                 """,
                 height=0
             )
+            # Reset flag so it doesn't scroll again on next interaction
+            st.session_state.scroll_to_now_playing = False
 
         col_hero_1, col_hero_2 = st.columns([3, 1])
         with col_hero_1:
@@ -1102,6 +1104,8 @@ def main():
         st.session_state.analysis_done = False
     if 'selected_persona' not in st.session_state:
         st.session_state.selected_persona = None
+    if 'scroll_to_now_playing' not in st.session_state:
+        st.session_state.scroll_to_now_playing = False
 
     # Load Data
     df_songs = load_data()
