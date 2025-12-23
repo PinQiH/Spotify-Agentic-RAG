@@ -843,6 +843,7 @@ def save_vote(vote_data, csv_filepath="data/user_votes.csv"):
         return False
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def load_votes(csv_filepath="data/user_votes.csv"):
     """
     Loads voting data from Google Sheets (preferred) or CSV.

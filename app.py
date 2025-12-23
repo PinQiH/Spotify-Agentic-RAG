@@ -1051,6 +1051,9 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                                 if "gsheets" not in st.secrets.get("connections", {}):
                                     st.warning("⚠️ 注意：目前僅儲存於暫存區 (CSV)，重啟即遺失。請設定 Google Sheets 以永久保存。")
                                 
+                                # Clear cache so new vote shows up immediately
+                                utils.load_votes.clear()
+                                
                                 # Auto-expand results
                                 st.session_state.vote_expanded = True
                             else:
