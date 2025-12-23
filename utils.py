@@ -426,7 +426,7 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
         paper_bgcolor='#121212',  # Force dark background, no transparency
         plot_bgcolor='#121212',
         height=700,  # Fixed height to match UI iframe
-        # width=900,   # REMOVE fixed width to allow responsiveness
+        width=900,   # Default width to prevent squashing in hidden tabs; responsive JS will resize it later
         autosize=True, # Enable autosize
         margin=dict(l=20, r=20, t=50, b=100),  # Increase bottom margin for legend
         font=dict(

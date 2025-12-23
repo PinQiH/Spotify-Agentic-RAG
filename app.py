@@ -972,7 +972,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                             )
 
                             # Generate HTML string in memory (DO NOT write to file to avoid Streamlit reload loop)
-                            html_content = fig.to_html(include_plotlyjs='cdn', full_html=True)
+                            html_content = fig.to_html(include_plotlyjs='cdn', full_html=True, config={'responsive': True})
                             
                             # Update Cache
                             st.session_state.viz_cache[cache_key] = html_content
