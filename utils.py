@@ -335,11 +335,11 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
         plot_df = pd.concat([plot_df, extra_rows], ignore_index=True)
         all_ids_in_plot.update(extra_rows['track_id'].tolist())
 
-    append_missing_from_pca(hist_ids, 'User History', 4)
-    append_missing_from_pca(step1_ids, 'Pre-computed Similar Candidates', 6)
-    append_missing_from_pca(step2_ids, 'FAISS Search Candidates', 6)
-    append_missing_from_pca(rec_ids, 'Re-ranked Recommendations', 8)
-    append_missing_from_pca([context_id], 'Current Playing', 12)
+    append_missing_from_pca(hist_ids, 'History', 4)
+    append_missing_from_pca(step1_ids, 'Step 1 (Similar)', 6)
+    append_missing_from_pca(step2_ids, 'Step 2 (Semantic)', 6)
+    append_missing_from_pca(rec_ids, 'Step 3 (Re-ranked)', 8)
+    append_missing_from_pca([context_id], 'Now Playing', 12)
 
     # If still missing highlights (not in df_songs or df_pca), create dummy points to keep categories visible
     def add_dummy_points(id_list, type_label, size_value):
@@ -360,11 +360,11 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
         plot_df = pd.concat([plot_df, dummy_rows], ignore_index=True)
         all_ids_in_plot.update(missing_ids)
 
-    add_dummy_points(hist_ids, 'User History', 4)
-    add_dummy_points(step1_ids, 'Pre-computed Similar Candidates', 6)
-    add_dummy_points(step2_ids, 'FAISS Search Candidates', 6)
-    add_dummy_points(rec_ids, 'Re-ranked Recommendations', 8)
-    add_dummy_points([context_id], 'Current Playing', 12)
+    add_dummy_points(hist_ids, 'History', 4)
+    add_dummy_points(step1_ids, 'Step 1 (Similar)', 6)
+    add_dummy_points(step2_ids, 'Step 2 (Semantic)', 6)
+    add_dummy_points(rec_ids, 'Step 3 (Re-ranked)', 8)
+    add_dummy_points([context_id], 'Now Playing', 12)
 
     # Intelligent Sampling: Keep all highlights, sample background
     highlights = plot_df[plot_df['Type'] != 'Other'].copy()
@@ -381,11 +381,11 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
     # 3. Plotting
     category_orders = {
         "Type": [
-            'User History',                      # 1. 使用者收聽紀錄
-            'Current Playing',                   # 2. 現在收聽歌曲
-            'Pre-computed Similar Candidates',   # 3. STEP 1 結果
-            'FAISS Search Candidates',           # 4. STEP 2 結果
-            'Re-ranked Recommendations',         # 5. STEP 3 前六筆
+            'History',                      # 1. 使用者收聽紀錄
+            'Now Playing',                   # 2. 現在收聽歌曲
+            'Step 1 (Similar)',   # 3. STEP 1 結果
+            'Step 2 (Semantic)',           # 4. STEP 2 結果
+            'Step 3 (Re-ranked)',         # 5. STEP 3 前六筆
             'Other'
         ]
     }
@@ -402,19 +402,19 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
         category_orders=category_orders,
         color_discrete_map={
             'Other': '#888888',       # Lighter gray for visibility
-            'User History': '#9d4edd',                # Purple
-            'Pre-computed Similar Candidates': '#ff9e00',  # Orange
-            'FAISS Search Candidates': '#3a86ff',     # Blue
-            'Re-ranked Recommendations': '#00FFFF',   # Cyan
-            'Current Playing': '#FF0000'              # Red
+            'History': '#9d4edd',                # Purple
+            'Step 1 (Similar)': '#ff9e00',  # Orange
+            'Step 2 (Semantic)': '#3a86ff',     # Blue
+            'Step 3 (Re-ranked)': '#00FFFF',   # Cyan
+            'Now Playing': '#FF0000'              # Red
         },
         symbol_map={
             'Other': 'circle',
-            'User History': 'circle',
-            'Pre-computed Similar Candidates': 'circle',
-            'FAISS Search Candidates': 'circle',
-            'Re-ranked Recommendations': 'circle',
-            'Current Playing': 'x'
+            'History': 'circle',
+            'Step 1 (Similar)': 'circle',
+            'Step 2 (Semantic)': 'circle',
+            'Step 3 (Re-ranked)': 'circle',
+            'Now Playing': 'x'
         },
         title="Song Embedding Space (PCA 2D Projection)",
         template="plotly_dark",

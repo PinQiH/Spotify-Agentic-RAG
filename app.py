@@ -971,13 +971,8 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                                 df_pca=df_pca
                             )
 
-                            # Save to file (optional mostly for debugging or if component specifically needed it, 
-                            # but we can pass string directly to components.html is safer and easier)
-                            # Let's keep file writing as backup but primarily use memory string.
-                            pio.write_html(fig, html_output_path)
-                            
-                            with open(html_output_path, "r", encoding="utf-8") as f:
-                                html_content = f.read()
+                            # Generate HTML string in memory (DO NOT write to file to avoid Streamlit reload loop)
+                            html_content = fig.to_html(include_plotlyjs='cdn', full_html=True)
                             
                             # Update Cache
                             st.session_state.viz_cache[cache_key] = html_content
