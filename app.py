@@ -227,6 +227,7 @@ def load_pca_data():
     return pd.read_csv(path)
 
 
+@st.cache_data
 def load_personas():
     personas = {}
     history_dir = "persona_listening_histories"
@@ -239,14 +240,13 @@ def load_personas():
     return personas
 
 
+@st.cache_data
 def load_persona_summaries():
     """Loads persona summaries from the JSON file."""
     path = "data/persona_listening_histories/persona_listening_histories/persona_summaries.json"
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    return {}
-
     return {}
 
 
@@ -404,6 +404,15 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
         # Update session state if changed via sidebar
         if selected_persona_name != st.session_state.selected_persona:
             st.session_state.selected_persona = selected_persona_name
+            # Clear caches that depend on Persona
+            if 'llm_results' in st.session_state:
+                st.session_state.llm_results = {}
+            if 'viz_cache' in st.session_state:
+                st.session_state.viz_cache = {}
+            # Step 1 and Step 2 caches are pure Song-Song similarity, so they can persist?
+            # Actually Step 2 might be pure song embedding query. Yes.
+            # But to be safe and clean, let's clear everything or keep purely song-based stuff?
+            # Keep song-based (Step1/2) for performance if user switches persona back and forth for same song.
             st.rerun()
 
         # Persona Descriptions
@@ -529,7 +538,16 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
         # Re-fetch persona traits for the current selection (in case it changed)
         selected_persona_name = st.session_state.selected_persona
         history = personas[selected_persona_name]
-        traits = utils.analyze_persona(history)
+        
+        # Cache persona traits
+        if 'persona_traits_cache' not in st.session_state:
+            st.session_state.persona_traits_cache = {}
+            
+        if selected_persona_name in st.session_state.persona_traits_cache:
+            traits = st.session_state.persona_traits_cache[selected_persona_name]
+        else:
+            traits = utils.analyze_persona(history)
+            st.session_state.persona_traits_cache[selected_persona_name] = traits
 
         st.title("🎵 Now Playing")
 
@@ -555,48 +573,65 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
             st.title("🧠 Agentic Thinking")
 
             # Step 1: Pre-computed Candidates
-            with st.status("[STEP 1: Candidates from Pre-computed Similar Items: PROCESSING...]", expanded=True) as status:
-                time.sleep(0.5)
-                st.markdown(
-                    "<span style='font-family: Consolas, monospace;'>&gt;&gt; Accessing <span style='color:#00FF41'>[Co-occurrence_DB]</span> for high-confidence pairs...</span>", unsafe_allow_html=True)
+            current_song_id = selected_song['track_id']
+            if 'step1_cache' not in st.session_state:
+                st.session_state.step1_cache = {}
+            
+            is_step1_cached = current_song_id in st.session_state.step1_cache
+            step1_label = "[STEP 1: Candidates from Pre-computed Similar Items: CACHED]" if is_step1_cached else "[STEP 1: Candidates from Pre-computed Similar Items: PROCESSING...]"
 
-                # Retrieve pre-computed candidates
-                step1_candidates = utils.get_precomputed_candidates(
-                    selected_song['track_id'], precomputed_data)
-
-                # Filter out candidates that match the current song's Name AND Artist (ignoring case)
-                # This covers cases where different IDs represent the same song
-                q_name = selected_song['track_name'].strip().lower()
-                q_artist = selected_song['artists'].strip().lower()
-
-                step1_candidates = [
-                    c for c in step1_candidates
-                    if not (c['track_name'].strip().lower() == q_name and c['artists'].strip().lower() == q_artist)
-                ]
-
-                if step1_candidates:
+            with st.status(step1_label, expanded=True) as status:
+                step1_candidates = []
+                
+                if is_step1_cached:
+                    step1_candidates = st.session_state.step1_cache[current_song_id]
                     st.markdown(
-                        f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Retrieved <span style='color:#00FF41'>[{len(step1_candidates)}]</span> pre-computed candidates based on audio similarity.</span>", unsafe_allow_html=True)
+                        f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Cached results found. Loaded <span style='color:#00FF41'>[{len(step1_candidates)}]</span> candidates.</span>", unsafe_allow_html=True)
+                else:
+                    time.sleep(0.5)
+                    st.markdown(
+                        "<span style='font-family: Consolas, monospace;'>&gt;&gt; Accessing <span style='color:#00FF41'>[Co-occurrence_DB]</span> for high-confidence pairs...</span>", unsafe_allow_html=True)
 
-                    # Display all candidates
+                    # Retrieve pre-computed candidates
+                    raw_candidates = utils.get_precomputed_candidates(
+                        selected_song['track_id'], precomputed_data)
+
+                    # Filter out candidates that match the current song's Name AND Artist (ignoring case)
+                    q_name = selected_song['track_name'].strip().lower()
+                    q_artist = selected_song['artists'].strip().lower()
+
+                    step1_candidates = [
+                        c for c in raw_candidates
+                        if not (c['track_name'].strip().lower() == q_name and c['artists'].strip().lower() == q_artist)
+                    ]
+                    
+                    # Cache the results
+                    st.session_state.step1_cache[current_song_id] = step1_candidates
+
+                    if step1_candidates:
+                        st.markdown(
+                            f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Retrieved <span style='color:#00FF41'>[{len(step1_candidates)}]</span> pre-computed candidates based on audio similarity.</span>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(
+                            f"<span style='font-family: Consolas, monospace;'>&gt;&gt; No pre-computed candidates found for this track. Using fallback retrieval.</span>", unsafe_allow_html=True)
+
+                # Render Results (Always)
+                if step1_candidates:
                     for i, cand in enumerate(step1_candidates):
                         score = cand.get('similarity_score', 0)
                         st.markdown(
                             f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{cand['track_name']}</span> by {cand['artists']} (Score: {score:.4f})</span>", unsafe_allow_html=True)
-                else:
-                    st.markdown(
-                        f"<span style='font-family: Consolas, monospace;'>&gt;&gt; No pre-computed candidates found for this track. Using fallback retrieval.</span>", unsafe_allow_html=True)
 
                 status.update(
                     label="[STEP 1: Candidates from Pre-computed Similar Items: OK]", state="complete", expanded=False)
 
             # Step 2: Semantic Search (FAISS)
             # Step 2: Candidates from FAISS Semantic Search
-            current_song_id = selected_song['track_id']
             if 'step2_cache' not in st.session_state:
                 st.session_state.step2_cache = {}
             
             is_step2_cached = current_song_id in st.session_state.step2_cache
+
             step2_label = "[STEP 2: Candidates from FAISS Semantic Search: CACHED]" if is_step2_cached else "[STEP 2: Candidates from FAISS Semantic Search: PROCESSING...]"
 
             with st.status(step2_label, expanded=True) as status:
@@ -876,6 +911,19 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
             # 4. Visualization (PCA)
             st.divider()
             st.title("📊 Visualization")
+            
+            # Initialize viz cache
+            if 'viz_cache' not in st.session_state:
+                st.session_state.viz_cache = {}
+            
+            current_song_id = selected_song['track_id']
+            
+            # Function to read HTML content safely
+            def get_html_content(path):
+                if os.path.exists(path):
+                    with open(path, "r", encoding="utf-8") as f:
+                        return f.read()
+                return None
 
             with st.spinner("Generating Embedding Space Visualization..."):
                 try:
@@ -885,29 +933,47 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                         if recs_df is None or recs_df.empty:
                             st.warning("No data for visualization.")
                             return
+                        
+                        # Unique cache key for this specific plot
+                        cache_key = f"{current_song_id}_{key_suffix}"
+                        html_output_path = os.path.join(BASE_DIR, f"pca_plot_{key_suffix}.html")
+                        
+                        # Check if we have cached HTML content or need to regenerate
+                        # We use memory cache to avoid unnecessary file I/O checks if logic hasn't changed,
+                        # but we still need to write the file for the components.html to read it...? 
+                        # Actually components.html takes a string OR safe html. 
+                        # We used components.html(html_content).
+                        
+                        # FIX: Check if cached in session state
+                        if cache_key in st.session_state.viz_cache:
+                            # Use cached HTML
+                            html_content = st.session_state.viz_cache[cache_key]
+                        else:
+                            # Generate
+                            viz_recs = recs_df.head(6)
+                            fig = utils.plot_pca_visualization(
+                                df_songs,
+                                selected_song,
+                                viz_recs,
+                                user_history=history,
+                                step1_cands=step1_candidates,
+                                step2_cands=step2_candidates,
+                                df_pca=df_pca
+                            )
 
-                        viz_recs = recs_df.head(6)
-                        fig = utils.plot_pca_visualization(
-                            df_songs,
-                            selected_song,
-                            viz_recs,
-                            user_history=history,
-                            step1_cands=step1_candidates,
-                            step2_cands=step2_candidates,
-                            df_pca=df_pca
-                        )
-
-                        # Save interactive plot to HTML (unique file per tab to avoid collision if run fast)
-                        output_file = os.path.join(BASE_DIR, f"pca_plot_{key_suffix}.html")
-                        pio.write_html(fig, output_file)
-
-                        # Embed the saved HTML via iframe-like component
-                        try:
-                            with open(output_file, "r", encoding="utf-8") as f:
+                            # Save to file (optional mostly for debugging or if component specifically needed it, 
+                            # but we can pass string directly to components.html is safer and easier)
+                            # Let's keep file writing as backup but primarily use memory string.
+                            pio.write_html(fig, html_output_path)
+                            
+                            with open(html_output_path, "r", encoding="utf-8") as f:
                                 html_content = f.read()
-                            components.html(html_content, width=950, height=750, scrolling=True)
-                        except Exception as embed_err:
-                            st.warning(f"無法載入 PCA HTML：{embed_err}")
+                            
+                            # Update Cache
+                            st.session_state.viz_cache[cache_key] = html_content
+
+                        # Render
+                        components.html(html_content, width=950, height=750, scrolling=True)
 
                     with viz_tabs[0]:
                         render_viz(final_recs, "gpt")
