@@ -8,6 +8,9 @@ import openai
 from dotenv import load_dotenv
 
 load_dotenv()
+import streamlit as st
+import gspread
+from google.oauth2.service_account import Credentials
 
 
 def analyze_persona(history_list):
@@ -757,28 +760,129 @@ def llm_rerank_candidates(df_songs, step1_cands, step2_cands, context_song, pers
         print(f"LLM Rerank Failed: {e}. Using rule-based.")
         return rerank_candidates(df_songs, step1_cands, step2_cands, context_song, persona_traits, top_k), f"LLM Rerank Failed: {e}"
 
-def save_vote_to_csv(vote_data, filepath="data/user_votes.csv"):
+def get_google_sheet_resource():
     """
-    Appends a new vote record to the CSV file.
-    vote_data: dict containing 'timestamp', 'persona', 'selected_song', 'reason_vote', 'song_vote', etc.
+    Returns (client, spreadsheet_url) if secrets are configured, else (None, None).
     """
-    file_exists = os.path.isfile(filepath)
-    df = pd.DataFrame([vote_data])
-    
-    # Append to CSV, add header only if file does not exist
-    df.to_csv(filepath, mode='a', header=not file_exists, index=False, encoding='utf-8-sig')
+    if "gsheets" not in st.secrets.get("connections", {}):
+        return None, None
+        
+    try:
+        secrets = st.secrets["connections"]["gsheets"]
+        spreadsheet_url = secrets.get("spreadsheet")
+        
+        # Construct credentials dict, removing generic keys if needed, 
+        # but from_service_account_info ignores extras usually.
+        # We need to ensure we pass a dict, secrets object behaves like one.
+        creds_dict = dict(secrets)
+        
+        # Define scopes
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+        
+        creds = Credentials.from_service_account_info(
+            creds_dict,
+            scopes=scopes
+        )
+        
+        client = gspread.authorize(creds)
+        return client, spreadsheet_url
+    except Exception as e:
+        print(f"GSpread Auth Error: {e}")
+        return None, None
 
 
-def load_vote_stats(filepath="data/user_votes.csv"):
+def save_vote(vote_data, csv_filepath="data/user_votes.csv"):
     """
-    Loads voting data and returns aggregated statistics.
-    Returns: DataFrame of votes, or None if file doesn't exist.
+    Saves a vote record. Tries Google Sheets first, falls back to CSV.
     """
-    if not os.path.exists(filepath):
+    # 1. Try Google Sheets
+    client, sheet_url = get_google_sheet_resource()
+    if client and sheet_url:
+        try:
+            sh = client.open_by_url(sheet_url)
+            worksheet = sh.get_worksheet(0) # First sheet
+            
+            # Prepare row data
+            columns = ["timestamp", "persona", "selected_song_name", "vote_reason", "vote_song"]
+            row_values = [vote_data.get(col, "") for col in columns]
+            
+            # Check if sheet is empty (to add headers)
+            # Efficient check: if first row is empty, it needs headers.
+            first_row = worksheet.row_values(1)
+            if not first_row:
+                worksheet.append_row(columns)
+                
+            # Append new row
+            worksheet.append_row(row_values)
+            return True
+        except Exception as e:
+            print(f"Google Sheets Save Error (gspread): {e}")
+            # Fallback
+            
+    # 2. Fallback to Local CSV
+    print("Falling back to local CSV for vote storage.")
+    try:
+        file_exists = os.path.isfile(csv_filepath)
+        df = pd.DataFrame([vote_data])
+        
+        # Ensure consistent columns for CSV if possible, but pandas handles dicts well.
+        # But for 'columns' above, let's keep it robust.
+        # Just use the dict as is for CSV.
+        df.to_csv(csv_filepath, mode='a', header=not file_exists, index=False, encoding='utf-8-sig')
+        return True
+    except Exception as e:
+        print(f"CSV Save Error: {e}")
+        return False
+
+
+def load_votes(csv_filepath="data/user_votes.csv"):
+    """
+    Loads voting data from Google Sheets (preferred) or CSV.
+    """
+    # 1. Try Google Sheets
+    client, sheet_url = get_google_sheet_resource()
+    if client and sheet_url:
+        try:
+            sh = client.open_by_url(sheet_url)
+            worksheet = sh.get_worksheet(0)
+            
+            # Get all values as list of lists
+            # data = worksheet.get_all_records() # This fails if no proper header
+            all_values = worksheet.get_all_values()
+            
+            if not all_values:
+                return pd.DataFrame()
+
+            # Smart detection: does first row look like headers?
+            # Our expected headers: "timestamp", "persona", ...
+            expected_headers = ["timestamp", "persona", "selected_song_name", "vote_reason", "vote_song"]
+            
+            # Normalize first row to lowercase for comparison
+            first_row_lower = [str(x).lower() for x in all_values[0]]
+            
+            if "timestamp" in first_row_lower and "persona" in first_row_lower:
+                # Has headers
+                if len(all_values) > 1:
+                    return pd.DataFrame(all_values[1:], columns=all_values[0])
+                else:
+                    # Only headers, no data
+                    return pd.DataFrame(columns=all_values[0])
+            else:
+                # No headers, assume all is data (e.g. user voted on empty sheet before we added header logic)
+                return pd.DataFrame(all_values, columns=expected_headers)
+                
+        except Exception as e:
+            print(f"Google Sheets Load Error (gspread): {e}")
+
+    # 2. Fallback to CSV
+    if not os.path.exists(csv_filepath):
         return None
     
     try:
-        return pd.read_csv(filepath, encoding='utf-8-sig')
+        return pd.read_csv(csv_filepath, encoding='utf-8-sig')
     except Exception as e:
-        print(f"Error loading votes: {e}")
+        print(f"Error loading votes from CSV: {e}")
         return None

@@ -1020,7 +1020,10 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                             key="song_vote_radio"
                         )
 
-                        submitted = st.form_submit_button("➤", use_container_width=True)
+                        # Right-align the submit button
+                        c1, c2 = st.columns([5, 1])
+                        with c2:
+                            submitted = st.form_submit_button("➤", use_container_width=True)
                         
                         if submitted:
                             import datetime
@@ -1032,16 +1035,43 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                                 "vote_reason": reason_vote,
                                 "vote_song": song_vote
                             }
-                            utils.save_vote_to_csv(vote_data)
-                            st.success("🎉 投票成功！感謝您的回饋。")
+                            vote_success = utils.save_vote(vote_data)
+                            if vote_success:
+                                st.success("🎉 投票成功！感謝您的回饋。")
+                                if "gsheets" not in st.secrets.get("connections", {}):
+                                    st.warning("⚠️ 注意：目前僅儲存於暫存區 (CSV)，重啟即遺失。請設定 Google Sheets 以永久保存。")
+                                
+                                # Auto-expand results
+                                st.session_state.vote_expanded = True
+                            else:
+                                st.error("❌ 投票儲存失敗。")
+
                             components.html("""
                                 <script>
                                     window.parent.document.querySelector('section.main').scrollTo(0, 0);
                                 </script>
                             """, height=0)
 
-            with st.expander("查看投票統計結果"):
-                df_votes = utils.load_vote_stats()
+            # Check if we should expand (default False)
+            expand_results = st.session_state.get('vote_expanded', False)
+            
+            with st.expander("查看投票統計結果", expanded=expand_results):
+                # Reset flag so it doesn't force open on next reload (unless voted again)
+                if expand_results:
+                    st.session_state.vote_expanded = False
+                    
+                # Debug Check
+                # st.write("Secrets keys:", st.secrets.keys())
+                # if "connections" in st.secrets:
+                #    st.write("Connections keys:", st.secrets["connections"].keys())
+
+                # Check connection status
+                if "gsheets" in st.secrets.get("connections", {}):
+                    st.caption("🟢 已連線至 Google Sheets (雲端同步中)")
+                else:
+                    st.caption("🔴 未連線至 Google Sheets (僅顯示暫存資料)")
+
+                df_votes = utils.load_votes()
                 if df_votes is not None and not df_votes.empty:
                     st.markdown("#### 推薦理由 (Reasoning) 得票數")
                     st.bar_chart(df_votes['vote_reason'].value_counts())
