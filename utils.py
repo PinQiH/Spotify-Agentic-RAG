@@ -422,37 +422,31 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
         size_max=14
     )
 
-    # Calculate fixed ranges to ensure plot renders correctly even in hidden tabs
-    # We force the range so Plotly doesn't try to auto-scale inside a 0-width container
-    pc1_col, pc2_col = ('PC1', 'PC2') if 'PC1' in df_pca.columns else ('PC_1', 'PC_2')
-    x_min, x_max = df_pca[pc1_col].min(), df_pca[pc1_col].max()
-    y_min, y_max = df_pca[pc2_col].min(), df_pca[pc2_col].max()
-    x_pad = (x_max - x_min) * 0.1
-    y_pad = (y_max - y_min) * 0.1
-    
     fig.update_layout(
         paper_bgcolor='#121212',  # Force dark background, no transparency
         plot_bgcolor='#121212',
         height=700,  # Fixed height to match UI iframe
-        width=900,   # Fixed width to prevent squashing in hidden tabs
-        autosize=False, # Disable autosize to rely on fixed width
-        margin=dict(l=20, r=150, t=50, b=50),  # Increase right margin for legend, decrease bottom
+        width=900,   # Default width to prevent squashing in hidden tabs; responsive JS will resize it later
+        autosize=True, # Enable autosize
+        margin=dict(l=20, r=20, t=50, b=140),  # More bottom margin for wrapped legend
         font=dict(
             family="'Circular', 'Helvetica Neue', Helvetica, Arial, sans-serif",
             size=12,
             color="white"
         ),
-        xaxis=dict(title="PC1", side="bottom", range=[x_min - x_pad, x_max + x_pad]), # Force PC1 range
-        yaxis=dict(title="PC2", side="left", range=[y_min - y_pad, y_max + y_pad]),   # Force PC2 range
         legend=dict(
             bgcolor='rgba(0,0,0,0)',
-            font=dict(color='white'),
-            orientation="v",   # Vertical legend for stability
+            font=dict(color='white', size=11),
+            orientation="h",   # Horizontal legend
             yanchor="top",
-            y=1,               # Align to top
-            xanchor="left",    # Align to left of the legend box
-            x=1.02,            # Position just outside the plot on the right
-            title=dict(text="Category") # Restore title for vertical context
+            y=-0.28,           # Further below plot so it has room
+            xanchor="center",
+            x=0.5,
+            entrywidth=110,            # Reserve horizontal space per item
+            entrywidthmode="pixels",   # Interpret entrywidth in px
+            itemsizing="constant",     # Keep marker/label sizing consistent
+            tracegroupgap=12,
+            title=None         # Remove title to prevent overlap
         ),
         hoverlabel=dict(
             bgcolor="#121212",
@@ -739,13 +733,7 @@ def llm_rerank_candidates(df_songs, step1_cands, step2_cands, context_song, pers
             response_format={"type": "json_object"},
             timeout=60
         )
-        # Defensive checks: response/choices/content might be None on provider errors
-        if not response or not getattr(response, "choices", None):
-            raise ValueError("LLM response is empty")
-        first_choice = response.choices[0]
-        content = getattr(first_choice, "message", None).content if getattr(first_choice, "message", None) else None
-        if not content:
-            raise ValueError("LLM response missing content")
+        content = response.choices[0].message.content
 
         parsed = json.loads(content)
         recommendations = parsed.get("recommendations", [])

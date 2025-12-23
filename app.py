@@ -508,7 +508,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                         if st.button("▶", key=f"btn_{row['track_id']}"):
                             st.session_state.selected_song = row
                             st.session_state.analysis_done = True  # Auto-start analysis
-                            st.session_state.scroll_to_now_playing = True  # Trigger scroll
+                            st.session_state.scroll_to_now_playing = True # Trigger scroll
                             st.rerun()
 
         # Pagination Controls
@@ -539,11 +539,11 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
         # Re-fetch persona traits for the current selection (in case it changed)
         selected_persona_name = st.session_state.selected_persona
         history = personas[selected_persona_name]
-
+        
         # Cache persona traits
         if 'persona_traits_cache' not in st.session_state:
             st.session_state.persona_traits_cache = {}
-
+            
         if selected_persona_name in st.session_state.persona_traits_cache:
             traits = st.session_state.persona_traits_cache[selected_persona_name]
         else:
@@ -578,14 +578,14 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
             current_song_id = selected_song['track_id']
             if 'step1_cache' not in st.session_state:
                 st.session_state.step1_cache = {}
-
+            
             is_step1_cached = current_song_id in st.session_state.step1_cache
             step1_label = "[STEP 1: Candidates from Pre-computed Similar Items: CACHED]" if is_step1_cached else "[STEP 1: Candidates from Pre-computed Similar Items: PROCESSING...]"
-
+            
             # Auto-expand only if processing (not cached)
             with st.status(step1_label, expanded=not is_step1_cached) as status:
                 step1_candidates = []
-
+                
                 if is_step1_cached:
                     step1_candidates = st.session_state.step1_cache[current_song_id]
                     st.markdown(
@@ -607,7 +607,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                         c for c in raw_candidates
                         if not (c['track_name'].strip().lower() == q_name and c['artists'].strip().lower() == q_artist)
                     ]
-
+                    
                     # Cache the results
                     st.session_state.step1_cache[current_song_id] = step1_candidates
 
@@ -632,7 +632,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
             # Step 2: Candidates from FAISS Semantic Search
             if 'step2_cache' not in st.session_state:
                 st.session_state.step2_cache = {}
-
+            
             is_step2_cached = current_song_id in st.session_state.step2_cache
 
             step2_label = "[STEP 2: Candidates from FAISS Semantic Search: CACHED]" if is_step2_cached else "[STEP 2: Candidates from FAISS Semantic Search: PROCESSING...]"
@@ -640,12 +640,12 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
             # Auto-expand only if processing (not cached)
             with st.status(step2_label, expanded=not is_step2_cached) as status:
                 step2_candidates = []
-
+                
                 if is_step2_cached:
                     step2_candidates = st.session_state.step2_cache[current_song_id]
                     st.markdown(
                         f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Cached results found. Loaded <span style='color:#00FF41'>[{len(step2_candidates)}]</span> candidates.</span>", unsafe_allow_html=True)
-
+                
                 elif faiss_index and faiss_metadata and embedding_model:
                     time.sleep(0.5)
                     st.markdown(
@@ -672,32 +672,29 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                     # Deduplication set: Current song + Step 1 Candidates
                     existing_ids = set()
                     existing_keys = set()
-
+                    
                     def normalize_key(name, artist):
                         return (name.strip().lower(), artist.strip().lower())
 
                     # Add current song
                     existing_ids.add(selected_song['track_id'])
-                    existing_keys.add(normalize_key(
-                        selected_song['track_name'], selected_song['artists']))
+                    existing_keys.add(normalize_key(selected_song['track_name'], selected_song['artists']))
 
                     if 'step1_candidates' in locals():
                         for c in step1_candidates:
                             existing_ids.add(c['track_id'])
-                            existing_keys.add(normalize_key(
-                                c['track_name'], c['artists']))
+                            existing_keys.add(normalize_key(c['track_name'], c['artists']))
 
                     for score, idx in zip(scores, found_indices):
                         if idx == -1:
                             continue
                         meta = faiss_metadata[idx]
-
+                        
                         # Filter duplicates
-                        current_key = normalize_key(
-                            meta['track_name'], meta['artists'])
+                        current_key = normalize_key(meta['track_name'], meta['artists'])
                         if meta['track_id'] in existing_ids or current_key in existing_keys:
                             continue
-
+                            
                         # Add to existing to prevent duplicates within Step 2 itself
                         existing_ids.add(meta['track_id'])
                         existing_keys.add(current_key)
@@ -709,12 +706,14 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                             'score': float(score),
                             'rag_doc': meta['rag_doc']
                         })
-
+                    
                     # Cache the results
                     st.session_state.step2_cache[current_song_id] = step2_candidates
 
                     st.markdown(
                         f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Vector search complete. Retrieved <span style='color:#00FF41'>[{len(step2_candidates)}]</span> semantic candidates.</span>", unsafe_allow_html=True)
+
+
 
                 else:
                     st.error("FAISS resources not loaded.")
@@ -725,7 +724,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                     score = cand['score']
                     expl_desc = cand['rag_doc'][:70] + \
                         "..." if len(cand['rag_doc']
-                                     ) > 60 else cand['rag_doc']
+                                        ) > 60 else cand['rag_doc']
                     st.markdown(
                         f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{cand['track_name']}</span> by {cand['artists']} (Score: {score:.4f}) <br>  <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'>Desc: {expl_desc}</span></span>", unsafe_allow_html=True)
 
@@ -733,17 +732,16 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                 # Update status
                 # If was cached, stay collapsed. If just processed, auto-expand (or user can close).
                 # Actually, better UX: always collapse when "complete" to avoid taking up huge space on re-runs
-                # But initial request said "keep expanded so user sees list".
+                # But initial request said "keep expanded so user sees list". 
                 # Compromise: expand if we just ran it (not cached), collapse if we just loaded cache.
                 status.update(
                     label="[STEP 2: Candidates from FAISS Semantic Search: OK]", state="complete", expanded=not is_step2_cached)
 
             # Step 3: Re-ranking & Filtering
             current_song_id = selected_song['track_id']
-            is_cached = current_song_id in st.session_state.get(
-                'llm_results', {})
+            is_cached = current_song_id in st.session_state.get('llm_results', {})
             step3_label = "[STEP 3: Re-ranked and Filtered Recommendations: CACHED]" if is_cached else "[STEP 3: Re-ranked and Filtered Recommendations: PROCESSING...]"
-
+            
             # Auto-expand only if processing (not cached)
             with st.status(step3_label, expanded=not is_cached) as status:
                 time.sleep(0.5)
@@ -760,7 +758,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                 # Prepare Parallel Execution
                 import concurrent.futures
                 from streamlit.runtime.scriptrunner import add_script_run_ctx
-
+                
                 # Helper function for parallel execution
                 def fetch_recommendations(model_name, provider, col_name):
                     return utils.llm_rerank_candidates(
@@ -770,32 +768,29 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
 
                 # LLM Comparison Columns
                 col_gpt, col_gemini, col_grok = st.columns(3)
-
+                
                 # Display Headers immediately
                 with col_gpt:
                     st.markdown("### 🤖 GPT-4o")
                     st.caption("(Active via OpenAI)")
-                    st.markdown(
-                        f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#FF00FF'>GPT-4o</span>...</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#FF00FF'>GPT-4o</span>...</span>", unsafe_allow_html=True)
                 with col_gemini:
                     st.markdown("### ⚡ Gemini 2.0 Flash")
                     st.caption("(Active via OpenRouter)")
-                    st.markdown(
-                        f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#FFD700'>Gemini 2.0 Flash</span>...</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#FFD700'>Gemini 2.0 Flash</span>...</span>", unsafe_allow_html=True)
                 with col_grok:
                     st.markdown("### 🚀 Grok 4.1 Fast")
                     st.caption("(Active via OpenRouter)")
-                    st.markdown(
-                        f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#00BFFF'>Grok 4.1 Fast</span>...</span>", unsafe_allow_html=True)
-
+                    st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#00BFFF'>Grok 4.1 Fast</span>...</span>", unsafe_allow_html=True)
+                
                 # Execute in parallel or load from cache
-
+                
                 if 'llm_results' not in st.session_state:
                     st.session_state.llm_results = {}
-
+                
                 # Check cache
                 cached_res = st.session_state.llm_results.get(current_song_id)
-
+                
                 if cached_res:
                     st.success("✅ Loaded cached recommendations.")
                     gpt_res = cached_res['gpt']
@@ -803,18 +798,15 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                     grok_res = cached_res['grok']
                 else:
                     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-                        future_gpt = executor.submit(add_script_run_ctx(
-                            fetch_recommendations), "gpt-4o", "openai", "GPT-4o")
-                        future_gemini = executor.submit(add_script_run_ctx(
-                            fetch_recommendations), "google/gemini-2.0-flash-001", "openrouter", "Gemini")
-                        future_grok = executor.submit(add_script_run_ctx(
-                            fetch_recommendations), "x-ai/grok-4.1-fast", "openrouter", "Grok")
-
+                        future_gpt = executor.submit(add_script_run_ctx(fetch_recommendations), "gpt-4o", "openai", "GPT-4o")
+                        future_gemini = executor.submit(add_script_run_ctx(fetch_recommendations), "google/gemini-2.0-flash-001", "openrouter", "Gemini")
+                        future_grok = executor.submit(add_script_run_ctx(fetch_recommendations), "x-ai/grok-4.1-fast", "openrouter", "Grok")
+                        
                         # Wait for results
                         gpt_res = future_gpt.result()
                         gemini_res = future_gemini.result()
                         grok_res = future_grok.result()
-
+                    
                     # Cache results
                     st.session_state.llm_results[current_song_id] = {
                         'gpt': gpt_res,
@@ -847,8 +839,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                         f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Re-ranking complete. <span style='color:#00FF41'>[{len(final_recs_gemini)}]</span> candidates.</span>", unsafe_allow_html=True)
 
                     for i, (_, row) in enumerate(final_recs_gemini.iterrows()):
-                        reason = row.get('reason') if pd.notna(
-                            row.get('reason')) else "AI Recommended"
+                        reason = row.get('reason') if pd.notna(row.get('reason')) else "AI Recommended"
                         st.markdown(
                             f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{row['track_name']}</span> by {row['artists']} <br> <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'> Reason: {reason}</span></span>", unsafe_allow_html=True)
 
@@ -857,13 +848,12 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                     final_recs_grok, grok_explanation = grok_res
                     if "Rule-based fallback" in grok_explanation or "LLM Rerank Failed" in grok_explanation:
                         st.warning(f"⚠️ {grok_explanation}")
-
+                    
                     st.markdown(
                         f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Re-ranking complete. <span style='color:#00FF41'>[{len(final_recs_grok)}]</span> candidates.</span>", unsafe_allow_html=True)
-
+                    
                     for i, (_, row) in enumerate(final_recs_grok.iterrows()):
-                        reason = row.get('reason') if pd.notna(
-                            row.get('reason')) else "AI Recommended"
+                        reason = row.get('reason') if pd.notna(row.get('reason')) else "AI Recommended"
                         st.markdown(
                             f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{row['track_name']}</span> by {row['artists']} <br> <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'> Reason: {reason}</span></span>", unsafe_allow_html=True)
 
@@ -876,17 +866,17 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                     "<span style='font-family: Consolas, monospace;'>&gt;&gt; Synthesizing reasoning context... <span style='color:#00FF41'>[Done]</span></span>", unsafe_allow_html=True)
                 st.markdown(
                     "<span style='font-family: Consolas, monospace;'>&gt;&gt; Generating natural language explanations via <span style='color:#00FF41'>[LLM]</span>... <span style='color:#00FF41'>[Done]</span></span>", unsafe_allow_html=True)
-
+                
                 exp_col1, exp_col2, exp_col3 = st.columns(3)
-
+                
                 with exp_col1:
                     st.markdown("**GPT-4o Reasoning**")
                     st.info(llm_explanation)
-
+                
                 with exp_col2:
                     st.markdown("**Gemini 2.0 Flash Reasoning**")
                     st.info(gemini_explanation)
-
+                
                 with exp_col3:
                     st.markdown("**Grok 4.1 Fast Reasoning**")
                     st.info(grok_explanation)
@@ -903,7 +893,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
 
             # Iterate in chunks of 3 for grid layout
             rec_tabs = st.tabs(["GPT-4o", "Gemini 2.0 Flash", "Grok 4.1 Fast"])
-
+            
             def display_recommendations(recs_df):
                 if recs_df is None or recs_df.empty:
                     st.info("No recommendations available.")
@@ -931,13 +921,13 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
             # 4. Visualization (PCA)
             st.divider()
             st.title("📊 Visualization")
-
+            
             # Initialize viz cache
             if 'viz_cache' not in st.session_state:
                 st.session_state.viz_cache = {}
-
+            
             current_song_id = selected_song['track_id']
-
+            
             # Function to read HTML content safely
             def get_html_content(path):
                 if os.path.exists(path):
@@ -947,20 +937,24 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
 
             with st.spinner("Generating Embedding Space Visualization..."):
                 try:
-                    viz_tabs = st.tabs(
-                        ["GPT-4o", "Gemini 2.0 Flash", "Grok 4.1 Fast"])
-
+                    viz_tabs = st.tabs(["GPT-4o", "Gemini 2.0 Flash", "Grok 4.1 Fast"])
+                    
                     def render_viz(recs_df, key_suffix):
                         if recs_df is None or recs_df.empty:
                             st.warning("No data for visualization.")
                             return
-
+                        
                         # Unique cache key for this specific plot
-                        cache_key = f"{current_song_id}_{key_suffix}_v8"
-                        html_output_path = os.path.join(
-                            BASE_DIR, f"pca_plot_{key_suffix}.html")
-
-                        # Check if cached in session state
+                        cache_key = f"{current_song_id}_{key_suffix}_v2"
+                        html_output_path = os.path.join(BASE_DIR, f"pca_plot_{key_suffix}.html")
+                        
+                        # Check if we have cached HTML content or need to regenerate
+                        # We use memory cache to avoid unnecessary file I/O checks if logic hasn't changed,
+                        # but we still need to write the file for the components.html to read it...? 
+                        # Actually components.html takes a string OR safe html. 
+                        # We used components.html(html_content).
+                        
+                        # FIX: Check if cached in session state
                         if cache_key in st.session_state.viz_cache:
                             # Use cached HTML
                             html_content = st.session_state.viz_cache[cache_key]
@@ -977,40 +971,38 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                                 df_pca=df_pca
                             )
 
-                            # Generate HTML string in memory
-                            html_content = fig.to_html(
-                                include_plotlyjs='cdn', full_html=True, config={'responsive': False}) # Disable responsive to force fixed layout
+                            # Generate HTML string in memory (DO NOT write to file to avoid Streamlit reload loop)
+                            html_content = fig.to_html(include_plotlyjs='cdn', full_html=True, config={'responsive': True})
 
+                            # Ensure Plotly reflows correctly when rendered inside hidden tabs (Streamlit tabs),
+                            # otherwise legends may overlap until a manual resize happens.
+                            _plotly_resize_js = """
+                            <script>
+                            (function() {
+                              function resizeAll() {
+                                if (!window.Plotly) return;
+                                var divs = document.querySelectorAll('.plotly-graph-div');
+                                divs.forEach(function(d) { try { Plotly.Plots.resize(d); } catch(e) {} });
+                              }
+                              // Try a few times (tab activation/layout can be async)
+                              for (var i = 0; i < 10; i++) { setTimeout(resizeAll, 200 + i * 250); }
+                              window.addEventListener('resize', function(){ setTimeout(resizeAll, 100); });
+                            })();
+                            </script>
+                            """
+                            html_content += _plotly_resize_js
+
+                            
                             # Update Cache
                             st.session_state.viz_cache[cache_key] = html_content
 
-                        # Render with JS IntersectionObserver to trigger resize when tab becomes visible
-                        components.html(
-                            html_content + """
-                            <script>
-                                // IntersectionObserver to trigger resize when the iframe becomes visible (i.e., tab switch)
-                                const observer = new IntersectionObserver((entries) => {
-                                    entries.forEach(entry => {
-                                        if (entry.isIntersecting) {
-                                            window.dispatchEvent(new Event('resize'));
-                                        }
-                                    });
-                                });
-                                observer.observe(document.body);
-                                
-                                // Also trigger initially and after a short delay just in case
-                                window.dispatchEvent(new Event('resize'));
-                                setTimeout(() => window.dispatchEvent(new Event('resize')), 300);
-                            </script>
-                            """,
-                            height=750,
-                            scrolling=True
-                        )
+                        # Render
+                        components.html(html_content, height=750, scrolling=True)
 
                     with viz_tabs[0]:
                         render_viz(final_recs, "gpt")
                     with viz_tabs[1]:
-                         render_viz(final_recs_gemini, "gemini")
+                        render_viz(final_recs_gemini, "gemini")
                     with viz_tabs[2]:
                         render_viz(final_recs_grok, "grok")
 
@@ -1021,7 +1013,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
 
             # 5. Voting System
             st.divider()
-
+            
             with st.expander("🗳️ 我要投票"):
                 with st.container(border=True):
                     st.markdown("### 📝 模型評選投票")
@@ -1041,9 +1033,9 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                             horizontal=True,
                             key="reason_vote_radio"
                         )
-
+                        
                         st.divider()
-
+                        
                         st.subheader("2. 最佳推薦歌曲 (Songs)")
                         song_vote = st.radio(
                             "您覺得哪個模型的推薦歌單最符合您的口味？",
@@ -1055,9 +1047,8 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                         # Right-align the submit button
                         c1, c2 = st.columns([5, 1])
                         with c2:
-                            submitted = st.form_submit_button(
-                                "➤", use_container_width=True)
-
+                            submitted = st.form_submit_button("➤", use_container_width=True)
+                        
                         if submitted:
                             import datetime
                             vote_data = {
@@ -1072,12 +1063,11 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                             if vote_success:
                                 st.success("🎉 投票成功！感謝您的回饋。")
                                 if "gsheets" not in st.secrets.get("connections", {}):
-                                    st.warning(
-                                        "⚠️ 注意：目前僅儲存於暫存區 (CSV)，重啟即遺失。請設定 Google Sheets 以永久保存。")
-
+                                    st.warning("⚠️ 注意：目前僅儲存於暫存區 (CSV)，重啟即遺失。請設定 Google Sheets 以永久保存。")
+                                
                                 # Clear cache so new vote shows up immediately
                                 utils.load_votes.clear()
-
+                                
                                 # Auto-expand results
                                 st.session_state.vote_expanded = True
                             else:
@@ -1091,12 +1081,12 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
 
             # Check if we should expand (default False)
             expand_results = st.session_state.get('vote_expanded', False)
-
+            
             with st.expander("查看投票統計結果", expanded=expand_results):
                 # Reset flag so it doesn't force open on next reload (unless voted again)
                 if expand_results:
                     st.session_state.vote_expanded = False
-
+                    
                 # Debug Check
                 # st.write("Secrets keys:", st.secrets.keys())
                 # if "connections" in st.secrets:
@@ -1112,14 +1102,15 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                 if df_votes is not None and not df_votes.empty:
                     st.markdown("#### 推薦理由 (Reasoning) 得票數")
                     st.bar_chart(df_votes['vote_reason'].value_counts())
-
+                    
                     st.markdown("#### 推薦歌單 (Songs) 得票數")
                     st.bar_chart(df_votes['vote_song'].value_counts())
-
+                    
                     st.markdown("#### 詳細投票紀錄")
-                    st.dataframe(df_votes)
+                    st.dataframe(df_votes.tail(10))
                 else:
                     st.info("目前尚無投票資料。")
+
 
 
 def main():
