@@ -1132,7 +1132,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                     st.bar_chart(df_votes['vote_song'].value_counts())
                     
                     st.markdown("#### 詳細投票紀錄")
-                    st.dataframe(df_votes.tail(10))
+                    st.dataframe(df_votes)
                 else:
                     st.info("目前尚無投票資料。")
 
