@@ -898,18 +898,43 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                 if recs_df is None or recs_df.empty:
                     st.info("No recommendations available.")
                     return
-                for i in range(0, min(len(recs_df), display_limit), 3):
-                    cols = st.columns(3)
-                    chunk_df = recs_df.iloc[i: i+3]
 
-                    for j, (_, row) in enumerate(chunk_df.iterrows()):
-                        with cols[j]:
+                # 只顯示前 display_limit 筆，排名也以此為準
+                recs_df = recs_df.head(display_limit).reset_index(drop=True)
+
+                for i in range(0, len(recs_df), 3):
+                    cols = st.columns(3)
+                    chunk_df = recs_df.iloc[i:i+3]
+
+                    for j, row in chunk_df.iterrows():
+                        with cols[j % 3]:
                             with st.container():
+                                rank = i + (j - i) + 1  # 等同於 row 的在 recs_df 的位置 + 1
+
+                                # Rank badge（你要的 #1 #2 #3...）
+                                st.markdown(
+                                    f"""
+                                    <div style="
+                                        display:inline-block;
+                                        padding:6px 10px;
+                                        border:1px solid #1DB954;
+                                        border-radius:10px;
+                                        color:#1DB954;
+                                        font-weight:700;
+                                        margin-bottom:10px;
+                                        font-family: 'Consolas', monospace;
+                                    ">
+                                        #{rank}
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
+
                                 spotify_embed(row['track_id'], height=352)
-                                # Use LLM reason if available
-                                reason = row.get('reason') if pd.notna(
-                                    row.get('reason')) else utils.generate_explanation(row, selected_song, traits)
+
+                                reason = row.get('reason') if pd.notna(row.get('reason')) else utils.generate_explanation(row, selected_song, traits)
                                 st.info(f"{reason}")
+
 
             with rec_tabs[0]:
                 display_recommendations(final_recs)
@@ -1107,7 +1132,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                     st.bar_chart(df_votes['vote_song'].value_counts())
                     
                     st.markdown("#### 詳細投票紀錄")
-                    st.dataframe(df_votes)
+                    st.dataframe(df_votes.tail(10))
                 else:
                     st.info("目前尚無投票資料。")
 
