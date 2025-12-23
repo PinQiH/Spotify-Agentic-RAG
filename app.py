@@ -579,8 +579,9 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
             
             is_step1_cached = current_song_id in st.session_state.step1_cache
             step1_label = "[STEP 1: Candidates from Pre-computed Similar Items: CACHED]" if is_step1_cached else "[STEP 1: Candidates from Pre-computed Similar Items: PROCESSING...]"
-
-            with st.status(step1_label, expanded=True) as status:
+            
+            # Auto-expand only if processing (not cached)
+            with st.status(step1_label, expanded=not is_step1_cached) as status:
                 step1_candidates = []
                 
                 if is_step1_cached:
@@ -634,7 +635,8 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
 
             step2_label = "[STEP 2: Candidates from FAISS Semantic Search: CACHED]" if is_step2_cached else "[STEP 2: Candidates from FAISS Semantic Search: PROCESSING...]"
 
-            with st.status(step2_label, expanded=True) as status:
+            # Auto-expand only if processing (not cached)
+            with st.status(step2_label, expanded=not is_step2_cached) as status:
                 step2_candidates = []
                 
                 if is_step2_cached:
@@ -725,8 +727,13 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                         f"<span style='font-family: Consolas, monospace; margin-left: 20px;'>* #{i+1} <span style='color:#00FFFF'>{cand['track_name']}</span> by {cand['artists']} (Score: {score:.4f}) <br>  <span style='color:#AAAAAA; font-size: 0.8em; margin-left: 20px;'>Desc: {expl_desc}</span></span>", unsafe_allow_html=True)
 
                 # Keep expanded so user sees the list
+                # Update status
+                # If was cached, stay collapsed. If just processed, auto-expand (or user can close).
+                # Actually, better UX: always collapse when "complete" to avoid taking up huge space on re-runs
+                # But initial request said "keep expanded so user sees list". 
+                # Compromise: expand if we just ran it (not cached), collapse if we just loaded cache.
                 status.update(
-                    label="[STEP 2: Candidates from FAISS Semantic Search: OK]", state="complete", expanded=True)
+                    label="[STEP 2: Candidates from FAISS Semantic Search: OK]", state="complete", expanded=not is_step2_cached)
 
             # Step 3: Re-ranking & Filtering
             current_song_id = selected_song['track_id']
@@ -763,7 +770,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                 with col_gpt:
                     st.markdown("### 🤖 GPT-4o")
                     st.caption("(Active via OpenAI)")
-                    st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#FF00FF'>GPT-4o Agent</span>...</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='font-family: Consolas, monospace;'>&gt;&gt; Sending candidates to <span style='color:#FF00FF'>GPT-4o</span>...</span>", unsafe_allow_html=True)
                 with col_gemini:
                     st.markdown("### ⚡ Gemini 2.0 Flash")
                     st.caption("(Active via OpenRouter)")
@@ -973,7 +980,7 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, precomputed_d
                             st.session_state.viz_cache[cache_key] = html_content
 
                         # Render
-                        components.html(html_content, width=950, height=750, scrolling=True)
+                        components.html(html_content, height=750, scrolling=True)
 
                     with viz_tabs[0]:
                         render_viz(final_recs, "gpt")

@@ -426,9 +426,9 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
         paper_bgcolor='#121212',  # Force dark background, no transparency
         plot_bgcolor='#121212',
         height=700,  # Fixed height to match UI iframe
-        width=900,   # Fixed width to match UI iframe
-        autosize=False,
-        margin=dict(l=20, r=20, t=50, b=20),  # Consistent margins
+        # width=900,   # REMOVE fixed width to allow responsiveness
+        autosize=True, # Enable autosize
+        margin=dict(l=20, r=20, t=50, b=100),  # Increase bottom margin for legend
         font=dict(
             family="'Circular', 'Helvetica Neue', Helvetica, Arial, sans-serif",
             size=12,
@@ -436,7 +436,12 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
         ),
         legend=dict(
             bgcolor='rgba(0,0,0,0)',
-            font=dict(color='white')
+            font=dict(color='white'),
+            orientation="h",   # Horizontal legend
+            yanchor="top",
+            y=-0.1,            # Position below the plot
+            xanchor="center",
+            x=0.5
         ),
         hoverlabel=dict(
             bgcolor="#121212",
