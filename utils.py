@@ -441,7 +441,8 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
             yanchor="top",
             y=-0.1,            # Position below the plot
             xanchor="center",
-            x=0.5
+            x=0.5,
+            title=None         # Remove title to prevent overlap
         ),
         hoverlabel=dict(
             bgcolor="#121212",
@@ -451,9 +452,13 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
     )
 
     # Hide background points by default; users can toggle via legend
+    # Hide background points by default; users can toggle via legend
     for trace in fig.data:
         if getattr(trace, "name", "") == "Other":
             trace.visible = "legendonly"
+            trace.legendrank = 1000  # Force 'Other' to the end
+        else:
+            trace.legendrank = 1     # Others appear first
 
     return fig
 
