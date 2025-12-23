@@ -422,27 +422,37 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
         size_max=14
     )
 
+    # Calculate fixed ranges to ensure plot renders correctly even in hidden tabs
+    # We force the range so Plotly doesn't try to auto-scale inside a 0-width container
+    pc1_col, pc2_col = ('PC1', 'PC2') if 'PC1' in df_pca.columns else ('PC_1', 'PC_2')
+    x_min, x_max = df_pca[pc1_col].min(), df_pca[pc1_col].max()
+    y_min, y_max = df_pca[pc2_col].min(), df_pca[pc2_col].max()
+    x_pad = (x_max - x_min) * 0.1
+    y_pad = (y_max - y_min) * 0.1
+    
     fig.update_layout(
         paper_bgcolor='#121212',  # Force dark background, no transparency
         plot_bgcolor='#121212',
         height=700,  # Fixed height to match UI iframe
-        width=900,   # Default width to prevent squashing in hidden tabs; responsive JS will resize it later
-        autosize=True, # Enable autosize
-        margin=dict(l=20, r=20, t=50, b=100),  # Increase bottom margin for legend
+        width=900,   # Fixed width to prevent squashing in hidden tabs
+        autosize=False, # Disable autosize to rely on fixed width
+        margin=dict(l=20, r=150, t=50, b=50),  # Increase right margin for legend, decrease bottom
         font=dict(
             family="'Circular', 'Helvetica Neue', Helvetica, Arial, sans-serif",
             size=12,
             color="white"
         ),
+        xaxis=dict(title="PC1", side="bottom", range=[x_min - x_pad, x_max + x_pad]), # Force PC1 range
+        yaxis=dict(title="PC2", side="left", range=[y_min - y_pad, y_max + y_pad]),   # Force PC2 range
         legend=dict(
             bgcolor='rgba(0,0,0,0)',
             font=dict(color='white'),
-            orientation="h",   # Horizontal legend
+            orientation="v",   # Vertical legend for stability
             yanchor="top",
-            y=-0.1,            # Position below the plot
-            xanchor="center",
-            x=0.5,
-            title=None         # Remove title to prevent overlap
+            y=1,               # Align to top
+            xanchor="left",    # Align to left of the legend box
+            x=1.02,            # Position just outside the plot on the right
+            title=dict(text="Category") # Restore title for vertical context
         ),
         hoverlabel=dict(
             bgcolor="#121212",
