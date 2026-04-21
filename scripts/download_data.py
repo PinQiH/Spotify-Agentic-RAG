@@ -2,8 +2,13 @@ import kagglehub
 import pandas as pd
 import os
 
-def main():
-    print("Downloading dataset...")
+def download_and_sample_data():
+    output_path = "data/songs.csv"
+    if os.path.exists(output_path):
+        print(f"// @ 偵測到資料集已存在於 {output_path}，跳過下載步驟。")
+        return
+
+    print("// > 開始從 Kaggle 下載資料集...")
     # Download latest version
     path = kagglehub.dataset_download("maharshipandya/-spotify-tracks-dataset")
     print("Path to dataset files:", path)
@@ -38,4 +43,4 @@ def main():
     print(f"Saved sampled data to {output_path} with shape {df_sample.shape}")
 
 if __name__ == "__main__":
-    main()
+    download_and_sample_data()

@@ -254,22 +254,7 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
         if not source:
             return []  # Safe for lists
         # Check if list of dicts or list of strings
-        if isinstance(source[0], dict):
-            return [str(x.get('track_id')) for x in source]
-        return [str(x) for x in source]
-
-    hist_ids = extract_ids(user_history)
-    step1_ids = extract_ids(step1_cands)
-    # Helper to clean ID lists (some might be dicts or strings)
-    def extract_ids(source):
-        if source is None:
-            return []
-        if isinstance(source, pd.DataFrame):
-            return [] if source.empty else [str(x) for x in source['track_id'].values]
-        if not source:
-            return []  # Safe for lists
-        # Check if list of dicts or list of strings
-        if isinstance(source[0], dict):
+        if len(source) > 0 and isinstance(source[0], dict):
             return [str(x.get('track_id')) for x in source]
         return [str(x) for x in source]
 
@@ -278,62 +263,69 @@ def plot_pca_visualization(df_songs, context_song, recommended_songs, user_histo
     step2_ids = extract_ids(step2_cands)
     rec_ids = extract_ids(recommended_songs)
     context_id = str(context_song['track_id'])
+    
+    # 確保 plot_df 的 track_id 是 str
+    plot_df['track_id'] = plot_df['track_id'].astype(str)
     all_ids_in_plot = set(plot_df['track_id'])
 
-    # Layer 1: User History
-    plot_df.loc[plot_df['track_id'].isin(hist_ids), 'Type'] = 'History'
-    plot_df.loc[plot_df['track_id'].isin(hist_ids), 'Size'] = 4
+    # Layer settings (History, Step 1, Step 2, Step 3, Now Playing)
+    layers = [
+        (hist_ids, 'History', 4),
+        (step1_ids, 'Step 1 (Similar)', 6),
+        (step2_ids, 'Step 2 (Semantic)', 6),
+        (rec_ids, 'Step 3 (Re-ranked)', 8),
+        ([context_id], 'Now Playing', 12)
+    ]
 
-    # Layer 2: Pre-computed
-    plot_df.loc[plot_df['track_id'].isin(
-        step1_ids), 'Type'] = 'Step 1 (Similar)'
-    plot_df.loc[plot_df['track_id'].isin(step1_ids), 'Size'] = 6
-
-    # Layer 3: FAISS
-    plot_df.loc[plot_df['track_id'].isin(
-        step2_ids), 'Type'] = 'Step 2 (Semantic)'
-    plot_df.loc[plot_df['track_id'].isin(step2_ids), 'Size'] = 6
-
-    # Layer 4: Re-ranked Recommendations (Winner)
-    plot_df.loc[plot_df['track_id'].isin(
-        rec_ids), 'Type'] = 'Step 3 (Re-ranked)'
-    plot_df.loc[plot_df['track_id'].isin(rec_ids), 'Size'] = 8
-
-    # Layer 5: Current Playing (Top)
-    plot_df.loc[plot_df['track_id'] == context_id, 'Type'] = 'Now Playing'
-    plot_df.loc[plot_df['track_id'] == context_id, 'Size'] = 12
+    for ids, label, size in layers:
+        plot_df.loc[plot_df['track_id'].isin(ids), 'Type'] = label
+        plot_df.loc[plot_df['track_id'].isin(ids), 'Size'] = size
 
     # If some highlight IDs are missing from plot_df (e.g., not in df_songs), try to append them using df_pca
     def append_missing_from_pca(id_list, type_label, size_value):
         nonlocal plot_df
-        if df_pca is None:
-            return
-        # Accept either PC1/PC2 or PC_1/PC_2 naming
-        pc1_col = None
-        pc2_col = None
-        if 'PC1' in df_pca.columns and 'PC2' in df_pca.columns:
-            pc1_col, pc2_col = 'PC1', 'PC2'
-        elif 'PC_1' in df_pca.columns and 'PC_2' in df_pca.columns:
-            pc1_col, pc2_col = 'PC_1', 'PC_2'
-        if pc1_col is None or pc2_col is None or 'track_id' not in df_pca.columns:
-            return
+        if df_pca is None: return
+        
+        # Determine column names
+        pc1_col = 'PC1' if 'PC1' in df_pca.columns else 'PC_1'
+        pc2_col = 'PC2' if 'PC2' in df_pca.columns else 'PC_2'
+        
         missing_ids = [tid for tid in id_list if tid not in all_ids_in_plot]
-        if not missing_ids:
-            return
+        if not missing_ids: return
+        
         df_pca_local = df_pca.copy()
         df_pca_local['track_id'] = df_pca_local['track_id'].astype(str)
-        extra_rows = df_pca_local[df_pca_local['track_id'].isin(
-            missing_ids)].copy()
-        if extra_rows.empty:
-            return
-        extra_rows = extra_rows.rename(
-            columns={pc1_col: 'PC1', pc2_col: 'PC2'})
-        extra_rows = extra_rows[['track_id', 'track_name',
-                                 'artists', 'track_genre', 'PC1', 'PC2']]
+        
+        # 濾出缺失項並補齊 Metadata (如有)
+        extra_rows = df_pca_local[df_pca_local['track_id'].isin(missing_ids)].copy()
+        if extra_rows.empty: return
+        
+        # 補齊 Metadata 以防止 KeyError
+        needed_meta = ['track_id', 'track_name', 'artists', 'track_genre']
+        for col in needed_meta:
+            if col not in extra_rows.columns and col in df_songs.columns:
+                meta_slice = df_songs[['track_id', col]].drop_duplicates('track_id')
+                meta_slice['track_id'] = meta_slice['track_id'].astype(str)
+                extra_rows = extra_rows.merge(meta_slice, on='track_id', how='left')
+        
+        extra_rows = extra_rows.rename(columns={pc1_col: 'PC1', pc2_col: 'PC2'})
+        
+        # 確保擁有繪圖所需的所有基本欄位
+        for col in ['track_name', 'artists', 'track_genre']:
+            if col not in extra_rows.columns: extra_rows[col] = "Unknown"
+            
+        extra_rows = extra_rows[['track_id', 'track_name', 'artists', 'track_genre', 'PC1', 'PC2']]
         extra_rows['Type'] = type_label
         extra_rows['Size'] = size_value
+        
         plot_df = pd.concat([plot_df, extra_rows], ignore_index=True)
         all_ids_in_plot.update(extra_rows['track_id'].tolist())
+
+    append_missing_from_pca(hist_ids, 'History', 4)
+    append_missing_from_pca(step1_ids, 'Step 1 (Similar)', 6)
+    append_missing_from_pca(step2_ids, 'Step 2 (Semantic)', 6)
+    append_missing_from_pca(rec_ids, 'Step 3 (Re-ranked)', 8)
+    append_missing_from_pca([context_id], 'Now Playing', 12)
 
     append_missing_from_pca(hist_ids, 'History', 4)
     append_missing_from_pca(step1_ids, 'Step 1 (Similar)', 6)

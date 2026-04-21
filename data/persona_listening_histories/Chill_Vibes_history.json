@@ -1,0 +1,166 @@
+{
+    "persona_name": "Chill Vibes",
+    "description": "偏好輕鬆、低能量、高聲學感 (Acoustic) 的音樂，如民謠或不插電歌曲。",
+    "listening_history": [
+        {
+            "track_id": "1kc3sMH4EMcVSmVKWpAVfk",
+            "track_name": "We Can Make It",
+            "artists": "George Jones",
+            "album_name": "The Essential George Jones",
+            "track_genre": "honky-tonk",
+            "popularity": 12
+        },
+        {
+            "track_id": "171luCSfSTBnaIVnfTVbS6",
+            "track_name": "Nasır (Live @ Zorlu PSM)",
+            "artists": "Melike Şahin",
+            "album_name": "Merhem: İlk Konserler (Live)",
+            "track_genre": "singer-songwriter",
+            "popularity": 42
+        },
+        {
+            "track_id": "4iF2TMFaiJwEHecDNavRU9",
+            "track_name": "ugly",
+            "artists": "Timmies;Nineteen95",
+            "album_name": "Ekena",
+            "track_genre": "chill",
+            "popularity": 60
+        },
+        {
+            "track_id": "6M61Wwn20lMTDOWIE28HtL",
+            "track_name": "Little Lights",
+            "artists": "Project AER;v i v",
+            "album_name": "How Are You? I'm Okay",
+            "track_genre": "ambient",
+            "popularity": 5
+        },
+        {
+            "track_id": "7fY8qVujvm5lZBrt5Y1sIJ",
+            "track_name": "Khayaal",
+            "artists": "Arijit Anand;Ankita Barwad",
+            "album_name": "Khayaal",
+            "track_genre": "indie",
+            "popularity": 56
+        },
+        {
+            "track_id": "0QClTV1SGxUicck7KqG6sE",
+            "track_name": "Tennessee Waltz",
+            "artists": "Floyd Cramer",
+            "album_name": "For The Moment",
+            "track_genre": "honky-tonk",
+            "popularity": 11
+        },
+        {
+            "track_id": "7vvQrcQCfq7SB8mxO9CRHq",
+            "track_name": "Frosty The Snowman",
+            "artists": "Ella Fitzgerald",
+            "album_name": "Rockin' Around The Christmas Tree 2022",
+            "track_genre": "jazz",
+            "popularity": 0
+        },
+        {
+            "track_id": "4Im6GRj17qa7NW76OsJh1s",
+            "track_name": "I Guess I Just Feel Like",
+            "artists": "John Mayer",
+            "album_name": "Sob Rock",
+            "track_genre": "singer-songwriter",
+            "popularity": 70
+        },
+        {
+            "track_id": "6D8MQ04WjnY9Jrhi1MdNFa",
+            "track_name": "Gamzedeyim Deva Bulmam",
+            "artists": "Müzeyyen Senar",
+            "album_name": "Yayınlanmamış Şarkılar, Vol. 2",
+            "track_genre": "turkish",
+            "popularity": 43
+        },
+        {
+            "track_id": "34XYMzu7cmqQjItV8mJ77m",
+            "track_name": "Para dos",
+            "artists": "Orquesta Color Tango De Roberto Alvarez",
+            "album_name": "Tango a Pugliese Con estilo para bailar Vol. 3",
+            "track_genre": "tango",
+            "popularity": 18
+        },
+        {
+            "track_id": "3H4VxEjsbVroJdqIYkWE3z",
+            "track_name": "Shampoo",
+            "artists": "Plastilina Mosh",
+            "album_name": "Juan Manuel",
+            "track_genre": "afrobeat",
+            "popularity": 28
+        },
+        {
+            "track_id": "3nBmy2hAqIDmMOD0VZGB7I",
+            "track_name": "Lost",
+            "artists": "Kris Allen",
+            "album_name": "Horizons",
+            "track_genre": "acoustic",
+            "popularity": 45
+        },
+        {
+            "track_id": "4eg6KLviLgdE9ZKLVwteq9",
+            "track_name": "Es Ist ein Ros Entsprungen (Remastered 2014)",
+            "artists": "Traditional;Aeolian Kammerchor",
+            "album_name": "Classical Christmas, Vol. 2",
+            "track_genre": "sleep",
+            "popularity": 0
+        },
+        {
+            "track_id": "0kDnxx7H1yiFtyel6Mvczh",
+            "track_name": "Sylvia: Act I: Les chasseresses (Fanfare)",
+            "artists": "Léo Delibes;Razumovsky Symphony Orchestra;Andrew Mogrelia",
+            "album_name": "Delibes: Sylvia (Complete Ballet) / Saint-Saens: Henry Viii",
+            "track_genre": "opera",
+            "popularity": 21
+        },
+        {
+            "track_id": "1KO29IUHcexH583hBewKof",
+            "track_name": "Breathe",
+            "artists": "Sam Wills",
+            "album_name": "Breathe",
+            "track_genre": "chill",
+            "popularity": 60
+        },
+        {
+            "track_id": "2kVQpubE6URKKj9L7Upk2l",
+            "track_name": "Where No One Stands Alone (with Lisa Marie Presley)",
+            "artists": "Elvis Presley;Lisa Marie Presley",
+            "album_name": "Where No One Stands Alone",
+            "track_genre": "rockabilly",
+            "popularity": 54
+        },
+        {
+            "track_id": "4hTR9VCNCQ8rUnpd3yqXam",
+            "track_name": "Three Caws - Original Mix",
+            "artists": "Cameron's Bedtime Classics",
+            "album_name": "Lullabies and Nursery Rhymes",
+            "track_genre": "disney",
+            "popularity": 21
+        },
+        {
+            "track_id": "0w4Sf61CbM69gDD7RVmaBD",
+            "track_name": "爸爸媽媽",
+            "artists": "Ronghao Li",
+            "album_name": "有理想",
+            "track_genre": "mandopop",
+            "popularity": 51
+        },
+        {
+            "track_id": "0IOeTm4kj6ONgNRWnFQokD",
+            "track_name": "Happy Holiday",
+            "artists": "Peggy Lee",
+            "album_name": "Weihnachten Musik",
+            "track_genre": "jazz",
+            "popularity": 0
+        },
+        {
+            "track_id": "1eqGYJJr2z2GXK1i0hD3BC",
+            "track_name": "Love Letters In The Sand - Single Version",
+            "artists": "Pat Boone",
+            "album_name": "Pat Boone's Greatest Hits (Reissue)",
+            "track_genre": "rock-n-roll",
+            "popularity": 55
+        }
+    ]
+}

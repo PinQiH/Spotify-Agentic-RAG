@@ -1,0 +1,166 @@
+{
+    "persona_name": "Study Focus",
+    "description": "偏好中低節奏、穩定且通常為純樂器演奏 (Instrumental) 的音樂以利專注。",
+    "listening_history": [
+        {
+            "track_id": "4CGNLY0PVsVGubWkee0lbO",
+            "track_name": "Lovely - Piano & Cello",
+            "artists": "Benny Martin;The Wong Janice",
+            "album_name": "Lovely (Piano & Cello)",
+            "track_genre": "disney",
+            "popularity": 38
+        },
+        {
+            "track_id": "0BhH8IeKQa3MW7J3dpl6x0",
+            "track_name": "Ghostbusters - Lo-Fi",
+            "artists": "hope mona",
+            "album_name": "trick or treat on beat",
+            "track_genre": "study",
+            "popularity": 0
+        },
+        {
+            "track_id": "19CV2Mzx9j5tZBdYqbxdtQ",
+            "track_name": "Zombie",
+            "artists": "Eddy Tyler",
+            "album_name": "Guitar Instrumental Covers",
+            "track_genre": "guitar",
+            "popularity": 37
+        },
+        {
+            "track_id": "5mjfIZabc3GGbIYtBa6VEw",
+            "track_name": "To Speak Of Solitude",
+            "artists": "Brambles",
+            "album_name": "Charcoal",
+            "track_genre": "ambient",
+            "popularity": 55
+        },
+        {
+            "track_id": "1cQCfrLGc5GpBC6bNPlsUm",
+            "track_name": "Earth - Mind Against Remix",
+            "artists": "Stephan Bodzin;Mind Against",
+            "album_name": "Boavista Remixes",
+            "track_genre": "minimal-techno",
+            "popularity": 38
+        },
+        {
+            "track_id": "5Cc2v7fm2cCm5ux4fgCQpM",
+            "track_name": "Nocturne in Paris",
+            "artists": "Tony Anderson",
+            "album_name": "Chasm",
+            "track_genre": "ambient",
+            "popularity": 45
+        },
+        {
+            "track_id": "0kDnxx7H1yiFtyel6Mvczh",
+            "track_name": "Sylvia: Act I: Les chasseresses (Fanfare)",
+            "artists": "Léo Delibes;Razumovsky Symphony Orchestra;Andrew Mogrelia",
+            "album_name": "Delibes: Sylvia (Complete Ballet) / Saint-Saens: Henry Viii",
+            "track_genre": "opera",
+            "popularity": 21
+        },
+        {
+            "track_id": "3OwZ8e7lb5Assv14ZRW1rU",
+            "track_name": "Forrest Rain",
+            "artists": "Rain Sounds",
+            "album_name": "Soft Rain Sleep",
+            "track_genre": "sleep",
+            "popularity": 32
+        },
+        {
+            "track_id": "37aia1wG2Ncz8AWjM4tPlY",
+            "track_name": "Om än bara för en stund",
+            "artists": "Maya Åström",
+            "album_name": "Om än bara för en stund",
+            "track_genre": "piano",
+            "popularity": 62
+        },
+        {
+            "track_id": "6ym5ZwHzAHnQYfYu1HyWNE",
+            "track_name": "Metal Claws",
+            "artists": "Tineidae",
+            "album_name": "Exo",
+            "track_genre": "idm",
+            "popularity": 10
+        },
+        {
+            "track_id": "3wWsdGGuCPmB6iwTFkIPnv",
+            "track_name": "Tardigrade's",
+            "artists": "Omar S",
+            "album_name": "Thank You for Letting Me Be Myself",
+            "track_genre": "detroit-techno",
+            "popularity": 8
+        },
+        {
+            "track_id": "4hTR9VCNCQ8rUnpd3yqXam",
+            "track_name": "Three Caws - Original Mix",
+            "artists": "Cameron's Bedtime Classics",
+            "album_name": "Lullabies and Nursery Rhymes",
+            "track_genre": "disney",
+            "popularity": 21
+        },
+        {
+            "track_id": "50TVKYY0LRQAqKI8EfBqzC",
+            "track_name": "The Sun Can't Compare - Long Version",
+            "artists": "Larry Heard;Mr White",
+            "album_name": "E.P.",
+            "track_genre": "chicago-house",
+            "popularity": 38
+        },
+        {
+            "track_id": "2wmQki14Gwt1gZUQdrWI1W",
+            "track_name": "Four Pieces For Piano, Op. 119: II. Intermezzo in E Minor",
+            "artists": "Johannes Brahms;Karin Lechner",
+            "album_name": "Refreshing Piano",
+            "track_genre": "german",
+            "popularity": 0
+        },
+        {
+            "track_id": "39uLYYZytVUwcjgeYLI409",
+            "track_name": "Merry-Go-Round of Life - from 'Howl's Moving Castle'",
+            "artists": "Joe Hisaishi",
+            "album_name": "FREEDOM PIANO STORIES 4",
+            "track_genre": "classical",
+            "popularity": 68
+        },
+        {
+            "track_id": "4admt90cSChznePxyzUVCP",
+            "track_name": "Dancing People Are Never Wrong",
+            "artists": "Jan Blomqvist;The Bianca Story",
+            "album_name": "Dancing People Are Never Wrong",
+            "track_genre": "minimal-techno",
+            "popularity": 55
+        },
+        {
+            "track_id": "5so1wKv1JCcpllBGxrOjjL",
+            "track_name": "Dangerous - David Guetta Banging Remix",
+            "artists": "David Guetta;Sam Martin",
+            "album_name": "EDM Hits",
+            "track_genre": "pop",
+            "popularity": 0
+        },
+        {
+            "track_id": "58eukN93h5b7rBlbcR6owz",
+            "track_name": "Trading Bikes",
+            "artists": "Ewert",
+            "album_name": "Trading Bikes",
+            "track_genre": "study",
+            "popularity": 31
+        },
+        {
+            "track_id": "24ScIVXgdaSX3qijPR6HFP",
+            "track_name": "Thunderstorm Sounds",
+            "artists": "Rain Sounds",
+            "album_name": "Rain Sounds: Rain Sound Meditation, Relaxing Sound of Rain, Massage Yoga Music and Ambient Soothing Sounds",
+            "track_genre": "sleep",
+            "popularity": 38
+        },
+        {
+            "track_id": "6CADlj5HsdrPnwR2oaFM1X",
+            "track_name": "Confession",
+            "artists": "Unholy Grave",
+            "album_name": "Angry Raw Grinder (Ltd Ed Vinyl LP)",
+            "track_genre": "grindcore",
+            "popularity": 12
+        }
+    ]
+}
