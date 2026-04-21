@@ -17,9 +17,4 @@ scipy
 torch
 torchvision
 torchaudio
-streamlit
 pandas
-numpy
-faiss-cpu
-sentence-transformers
-plotly
