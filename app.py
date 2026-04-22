@@ -17,6 +17,7 @@ import concurrent.futures
 from scripts.train_mlp import SoftPromptMLP
 from scripts.recommender_agent import get_multi_model_recommendations, calculate_cosine_similarity
 from scripts.get_persona_prompt import get_persona_soft_prompt
+from scripts.dynamic_rag import generate_dynamic_rag_doc
 
 # > Spotify Agentic RAG DJ: 核心應用程序
 # - 整合 3-Step 推理流程與多模型對比
@@ -136,7 +137,7 @@ def load_precomputed_data():
 
 @st.cache_resource
 def load_faiss_resources():
-	if not os.path.exists(INDEX_PATH) or not os.path.exists(META_PATH): return None, None, None, None
+	if not os.path.exists(INDEX_PATH): return None, None, None, None
 	temp_path = None
 	try:
 		fd, temp_path = tempfile.mkstemp(suffix=".index")
@@ -146,16 +147,28 @@ def load_faiss_resources():
 	except: return None, None, None, None
 	finally:
 		if temp_path: os.remove(temp_path)
-	with open(META_PATH, "rb") as f: metadata = pickle.load(f)
+	
+	# 下載/載入語義向量模型 (384維)
 	st_model = SentenceTransformer('all-MiniLM-L6-v2')
+	
+	# 載入微調過的 MLP 模型 (用於特徵轉向量)
 	mlp_path = "data/soft_prompt_mlp_finetuned.pth"
 	mlp_model = None
 	if os.path.exists(mlp_path):
 		checkpoint = torch.load(mlp_path, map_location=torch.device('cpu'))
-		mlp_model = SoftPromptMLP(checkpoint['input_dim'], checkpoint['output_dim'])
+		# 自動取得模型維度 (支持舊版 17 或新版 33)
+		input_dim = checkpoint.get('input_dim', 33) 
+		mlp_model = SoftPromptMLP(input_dim, checkpoint['output_dim'])
 		mlp_model.load_state_dict(checkpoint['model_state_dict'])
 		mlp_model.eval()
-	return index, metadata, st_model, mlp_model
+	
+	# 加載與 FAISS Index 嚴格對齊的元數據 (2,000筆標竿歌)
+	faiss_meta_path = os.path.join(DATA_DIR, "spotify_faiss_meta.pkl")
+	faiss_metadata = []
+	if os.path.exists(faiss_meta_path):
+		with open(faiss_meta_path, "rb") as f: faiss_metadata = pickle.load(f)
+		
+	return index, st_model, mlp_model, faiss_metadata
 
 # --- Helper Functions ---
 def spotify_embed(track_id, height=80):
@@ -229,7 +242,7 @@ def render_landing_page(personas, persona_summaries):
 					st.session_state.selected_persona = name
 					st.rerun()
 
-def render_main_app(df_songs, df_pca, personas, persona_summaries, index, metadata, st_model, mlp_model, soft_prompts_map, precomputed_data):
+def render_main_app(df_songs, df_pca, personas, persona_summaries, index, st_model, mlp_model, faiss_metadata, soft_prompts_map, precomputed_data):
 	with st.sidebar:
 		st.header("User Persona")
 		p_name = st.session_state.selected_persona
@@ -261,16 +274,17 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, index, metada
 	if 'search_query' not in st.session_state: st.session_state.search_query = ""
 	if 'page_num' not in st.session_state: st.session_state.page_num = 0
 	
+	# 搜尋與展示：直接使用 df_songs 確保全量 (20,000筆) 都能被搜到
 	search_query = st.text_input("搜尋歌曲或藝人:", value=st.session_state.search_query)
 	if search_query != st.session_state.search_query:
 		st.session_state.search_query = search_query
-		st.session_state.page_num = 0 # 搜尋時重置分頁
+		st.session_state.page_num = 0
 		st.rerun()
 
-	# 過濾歌曲清單
-	filtered_metadata = [
-		m for m in metadata if search_query.lower() in m['track_name'].lower() or search_query.lower() in m['artists'].lower()
-	]
+	# 過濾全量歌曲
+	mask = df_songs['track_name'].str.contains(search_query, case=False, na=False) | \
+		   df_songs['artists'].str.contains(search_query, case=False, na=False)
+	filtered_metadata = df_songs[mask].to_dict('records')
 	
 	songs_per_page = 12
 	total_pages = (len(filtered_metadata) + songs_per_page - 1) // songs_per_page
@@ -341,10 +355,11 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, index, metada
 					raw_num_cands = precomputed_data
 			
 			step1_candidates = []
-			meta_lookup = {m['track_id']: m for m in metadata}
+			# 修正：將 metadata 替換為全量 df_songs
+			df_lookup = df_songs.to_dict('records')
+			meta_lookup = {m['track_id']: m for m in df_lookup}
 			
 			for sim_item in raw_num_cands[:20]:
-				# 取得 track_id，可能是字串或字典中的欄位
 				tid = sim_item.get('track_id') if isinstance(sim_item, dict) else sim_item
 				if tid in meta_lookup:
 					step1_candidates.append(meta_lookup[tid])
@@ -353,26 +368,74 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, index, metada
 			status.update(label=f"Step 1: OK ({len(step1_candidates)})", state="complete")
 
 		# --- Step 2: Semantic (MLP + FAISS) ---
-		with st.status("[STEP 2: Semantic Retrieval via MLP]", expanded=False) as status:
+		with st.status("[STEP 2: Semantic Retrieval]", expanded=False) as status:
 			song_vec = soft_prompts_map.get(current_song_id)
 			if song_vec is not None:
 				st.markdown("<span style='color:#00FF41'>&gt;&gt; Using MLP Predicted Soft-Prompt Vector...</span>", unsafe_allow_html=True)
 				query_vec = song_vec.reshape(1, -1).astype('float32')
 				D, I = index.search(query_vec, 15)
-				semantic_cands = [metadata[idx] for idx in I[0] if metadata[idx]['track_id'] != current_song_id]
-				st.write(f"✅ Retrieved {len(semantic_cands)} semantic candidates.")
+				
+				# 僅初步收集，稍後統一進行打分與去重
+				semantic_raw_cands = []
+				for idx in I[0]:
+					if idx < len(faiss_metadata):
+						cand = faiss_metadata[idx]
+						if cand['track_id'] != current_song_id:
+							semantic_raw_cands.append(cand)
+				st.write(f"✅ Found {len(semantic_raw_cands)} semantic candidates.")
 			else:
-				semantic_cands = []
+				semantic_raw_cands = []
 				st.warning("No soft prompt vector found.")
 			status.update(label="Step 2: OK", state="complete")
+
+		# --- [NEW] Refinement: Deduplication & Scoring (跟 Notebook 一模一樣) ---
+		with st.status("[INTEGRATION: Deduplication & Scoring]", expanded=False) as status:
+			# 1. 建立去重清單
+			all_candidates_dict = {}
+
+			# 1.1 整合數值檢索 (Step 1)
+			for c in step1_candidates:
+				tid = c['track_id']
+				# 確保查表資料完整 (使用全量 df_songs)
+				rows = df_songs[df_songs['track_id'] == tid]
+				if not rows.empty:
+					all_candidates_dict[tid] = rows.iloc[0].to_dict()
+
+			# 1.2 整合語義檢索 (Step 2)
+			for c in semantic_raw_cands:
+				all_candidates_dict[c['track_id']] = c
+
+			# 2. 計算與 Persona 的語義匹配度
+			persona_vec = get_persona_soft_prompt(p_name, soft_prompts_map)
+			final_candidate_list = []
+			
+			for tid, meta in all_candidates_dict.items():
+				# [補全邏輯] 如果沒有預先生成的 RAG 描述，則動態現場生成一段
+				if 'rag_doc' not in meta or pd.isna(meta['rag_doc']) or meta['rag_doc'] == "" or meta['rag_doc'] == "nan":
+					meta['rag_doc'] = generate_dynamic_rag_doc(meta)
+					meta['is_dynamic_rag'] = True # 標註為動態生成，方便除錯
+				
+				if tid in soft_prompts_map:
+					sim_score = calculate_cosine_similarity(persona_vec, soft_prompts_map[tid])
+					meta_with_score = meta.copy()
+					meta_with_score['persona_match_score'] = float(sim_score)
+					
+					# 標記來源
+					is_s = any(sc['track_id'] == tid for sc in semantic_raw_cands)
+					meta_with_score['retrieval_source'] = "Semantic" if is_s else "Numerical"
+					final_candidate_list.append(meta_with_score)
+			
+			st.write(f"✅ Refined {len(final_candidate_list)} unique candidates with taste-scores.")
+			status.update(label="Sync: Completed", state="complete")
 
 		# --- Step 3: Agentic Re-ranking ---
 		with st.status("[STEP 3: Multi-Model Agent Inference]", expanded=True) as status:
 			st.markdown("<span style='color:#00FF41'>&gt;&gt; Orchestrating parallel experts...</span>", unsafe_allow_html=True)
 			
 			current_song = st.session_state.get('current_selected_meta')
+			# 使用打分後的 final_candidate_list (跟 Notebook 做法一致)
 			multi_results, errors = get_multi_model_recommendations(
-				p_name, current_song, persona_summaries.get(p_name, ""), semantic_cands
+				p_name, current_song, persona_summaries.get(p_name, ""), final_candidate_list
 			)
 			
 			if errors:
@@ -438,9 +501,9 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, index, metada
 						else:
 							# 準備推薦結果 DataFrame
 							recs_df = safe_df(res['recommendations'])
-							# 準備候選集 DataFrame (從外層作用域抓取)
-							s1_df = safe_df(step1_candidates)
-							s2_df = safe_df(semantic_cands)
+							# 準備候選集 DataFrame (從外層作用域抓取，使用最新變數名)
+							s1_df = safe_df(numerical_cands if 'numerical_cands' in locals() else [])
+							s2_df = safe_df(semantic_raw_cands if 'semantic_raw_cands' in locals() else [])
 
 							try:
 								fig = utils.plot_pca_visualization(
@@ -527,15 +590,15 @@ def main():
 	personas = load_personas()
 	persona_summaries = load_persona_summaries()
 	soft_prompts_map = load_soft_prompts()
-	index, metadata, st_model, mlp_model = load_faiss_resources()
-
+	# 修正接收：index, st_model, mlp_model, faiss_metadata (順序與定義對齊)
+	index, st_model, mlp_model, faiss_metadata = load_faiss_resources() 
 	precomputed_data = load_precomputed_data()
 
 	if st.session_state.selected_persona is None:
 		render_landing_page(personas, persona_summaries)
 	else:
-		render_main_app(df_songs, df_pca, personas, persona_summaries, index, metadata, 
-						st_model, mlp_model, soft_prompts_map, precomputed_data)
+		render_main_app(df_songs, df_pca, personas, persona_summaries, index, 
+						st_model, mlp_model, faiss_metadata, soft_prompts_map, precomputed_data)
 
 if __name__ == "__main__":
 	main()

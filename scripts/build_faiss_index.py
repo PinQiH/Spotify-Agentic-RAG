@@ -10,9 +10,9 @@ from sentence_transformers import SentenceTransformer
 # --- Configuration ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
-RAG_DOC_PATH = os.path.join(DATA_DIR, "spotify_rag_doc.csv")
+RAG_DOC_PATH = os.path.join(DATA_DIR, "rag_docs.csv")
 INDEX_PATH = os.path.join(DATA_DIR, "spotify.index")
-META_PATH = os.path.join(DATA_DIR, "spotify_meta.pkl")
+META_PATH = os.path.join(DATA_DIR, "spotify_faiss_meta.pkl")
 SONGS_CSV_PATH = os.path.join(DATA_DIR, "songs.csv")
 
 def build_index():
@@ -29,19 +29,8 @@ def build_index():
     # Clean data
     df = df.dropna(subset=['track_id', 'rag_doc']).drop_duplicates(subset=['track_id'])
     
-    # Optimization: Filter to only songs in the app's songs.csv (similar to what we did for Chroma)
-    # This keeps the index small (~2000 vs 114k) and fast
-    if os.path.exists(SONGS_CSV_PATH):
-        print("Filtering to match songs.csv...")
-        df_songs = pd.read_csv(SONGS_CSV_PATH)
-        target_ids = set(df_songs["track_id"].astype(str))
-        original_len = len(df)
-        df = df[df["track_id"].astype(str).isin(target_ids)]
-        print(f"Filtered from {original_len} to {len(df)} records.")
-    
-    # Limit for quick testing as requested
-    df = df.head(2000)
-    print(f"Limiting processing to first {len(df)} records.") 
+    # Use actual records from rag_docs.csv
+    print(f"Processing {len(df)} records from {RAG_DOC_PATH}.") 
 
     documents = df['rag_doc'].astype(str).tolist()
     ids = df['track_id'].astype(str).tolist()

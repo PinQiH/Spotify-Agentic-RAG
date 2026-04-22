@@ -23,20 +23,31 @@ def batch_generate_soft_prompts(df_processed, df_pca, model_path="data/soft_prom
 	model.eval()
 	print(f"// > 已載入模型: {model_path}，準備轉換 {len(df_pca)} 首歌曲...")
 
-	# 2. 準備特徵矩陣 (與訓練時邏輯完全一致)
+	# 2. 準備特徵矩陣 (與訓練/微調時邏輯完全一致)
 	pca_cols = [c for c in df_pca.columns if c.startswith('PC_')]
-	feat_cols = pca_cols.copy()
-	if 'explicit' in df_processed.columns: feat_cols.append('explicit')
-	if 'instrumentalness_binary' in df_processed.columns: feat_cols.append('instrumentalness_binary')
+	raw_numeric_cols = [
+		'popularity', 'duration_ms', 'explicit', 'danceability', 'energy', 
+		'key', 'loudness', 'mode', 'speechiness', 'acousticness', 
+		'instrumentalness', 'liveness', 'valence', 'tempo', 'time_signature'
+	]
+	raw_numeric_cols = [c for c in raw_numeric_cols if c in df_processed.columns]
 	
-	df_combined = pd.concat([df_pca, df_processed[['explicit', 'instrumentalness_binary']]], axis=1)
-	track_ids = df_combined['track_id'].values
-	X_values = df_combined[feat_cols].values.astype('float32')
+	print(f"// > 正在提取特徵: PCA ({len(pca_cols)}) + 原始數值 ({len(raw_numeric_cols)})")
+	
+	# 對齊 df_pca 與 df_processed (確保筆順一致)
+	# 這裡我們以 df_pca 為基準進行拼接
+	df_combined = pd.concat([
+		df_pca.set_index('track_id')[pca_cols],
+		df_processed.set_index('track_id')[raw_numeric_cols]
+	], axis=1).reset_index()
 
-	# --- 維度自動對齊 (對齊模型的 input_dim) ---
+	track_ids = df_combined['track_id'].values
+	X_values = df_combined.drop(columns=['track_id']).values.astype('float32')
+
+	# --- 維度驗證 (嚴格對齊) ---
 	expected_dim = next(model.parameters()).size(1)
 	if X_values.shape[1] != expected_dim:
-		print(f"// !! 數據維度 ({X_values.shape[1]}) 與模型維度 ({expected_dim}) 不符，進行自動對齊...")
+		print(f"// !! 數據維度 ({X_values.shape[1]}) 與模型維度 ({expected_dim}) 不符，進行對齊處理...")
 		if X_values.shape[1] > expected_dim:
 			X_values = X_values[:, :expected_dim]
 		else:

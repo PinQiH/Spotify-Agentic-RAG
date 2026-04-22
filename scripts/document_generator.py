@@ -19,7 +19,7 @@ def add_quantile_text_column(df, col, new_col, low_txt, mid_txt, high_txt):
 	df[new_col] = pd.cut(s, bins=bins, labels=labels, include_lowest=True).astype(str)
 	return df
 
-def generate_rag_docs(df, save_path="data/rag_docs.csv"):
+def generate_rag_docs(df, save_path="data/rag_docs.csv", max_docs=None):
 	"""
 	使用與 baseline.ipynb 一致的「三分法」與「調性/拍號映射」生成歌曲描述。
 	"""
@@ -27,8 +27,14 @@ def generate_rag_docs(df, save_path="data/rag_docs.csv"):
 		print(f"// @ 找到已生成的 RAG 文件檔: {save_path}，直接讀取...")
 		return pd.read_csv(save_path)
 
-	print(f"// > 正在使用「三分法」為 {len(df)} 首歌曲生成專業描述...")
-	df_docs = df.copy()
+	# 根據 max_docs 限制處理筆數
+	if max_docs and len(df) > max_docs:
+		print(f"// > 限制處理筆數為前 {max_docs} 筆 (總計 {len(df)} 筆)")
+		df_docs = df.head(max_docs).copy()
+	else:
+		df_docs = df.copy()
+
+	print(f"// > 正在使用「三分法」為 {len(df_docs)} 首歌曲生成專業描述...")
 
 	# 1. 十一個維度的三分法描述
 	configs = [

@@ -33,7 +33,7 @@ def download_and_sample_data():
     # Sample data to keep it lightweight for the demo
     # We want a good mix, so maybe just random sample for now
     # Or we could ensure we have enough diversity if we were being fancy, but random is fine for a demo.
-    df_sample = df.sample(n=2000, random_state=42)
+    df_sample = df.sample(n=20000, random_state=42)
     
     # Ensure data directory exists
     os.makedirs("data", exist_ok=True)

@@ -67,14 +67,53 @@ def train_soft_prompt_mlp(df_processed, df_pca, meta_path="data/spotify_meta.pkl
 	Y = model_st.encode(texts)
 	Y = np.array(Y).astype('float32')
 
-	# 2. 準備 X (Features)
-	pca_cols = [c for c in df_pca.columns if c.startswith('PC_')]
-	X_df = df_pca[pca_cols].copy()
+	# 2. 準備 X (Features) 與資料對齊
+	# 強制對輸入數據進行去重，避免 loc 回傳多筆重複 ID 的資料
+	df_pca_clean = df_pca.drop_duplicates(subset=['track_id'])
+	df_proc_clean = df_processed.drop_duplicates(subset=['track_id'])
+
+	# 我們以 metadata 裡的順序為基準
+	track_ids_in_meta = [str(row['track_id']) for row in metadata]
 	
-	if 'explicit' in df_processed.columns:
-		X_df['explicit'] = df_processed['explicit'].values
-	if 'instrumentalness_binary' in df_processed.columns:
-		X_df['instrumentalness_binary'] = df_processed['instrumentalness_binary'].values
+	# 對齊 df_pca 與 df_processed (建立索引後快速查詢)
+	df_pca_indexed = df_pca_clean.set_index('track_id')
+	df_proc_indexed = df_proc_clean.set_index('track_id')
+	
+	# 提取對齊後的資料
+	valid_ids = [tid for tid in track_ids_in_meta if tid in df_pca_indexed.index]
+	
+	if len(valid_ids) < len(track_ids_in_meta):
+		print(f"// !! 警告: 有 {len(track_ids_in_meta) - len(valid_ids)} 筆 Metadata 找不到對應特徵，將進行過濾。")
+
+	# @ 重新對齊並計算 Y 以確保與 X 行數相等 (2000 -> 2000)
+	from sentence_transformers import SentenceTransformer
+	print(f"// > 正在對齊 {len(valid_ids)} 筆訓練目標 (Y: Embeddings)...")
+	model_st = SentenceTransformer('all-MiniLM-L6-v2')
+	
+	# 建立 ID 到 Metadata 的映射，快速取得文字描述
+	id_to_meta = {str(m['track_id']): m for m in metadata}
+	texts = [f"{id_to_meta[tid]['track_name']} {id_to_meta[tid]['artists']} {id_to_meta[tid]['track_genre']}" for tid in valid_ids]
+	Y = model_st.encode(texts)
+	Y = np.array(Y).astype('float32')
+
+	df_pca_aligned = df_pca_indexed.loc[valid_ids].reset_index()
+	df_proc_aligned = df_proc_indexed.loc[valid_ids].reset_index()
+	
+	# --- 特徵組裝 ---
+	pca_cols = [c for c in df_pca_aligned.columns if c.startswith('PC_')]
+	raw_numeric_cols = [
+		'popularity', 'duration_ms', 'explicit', 'danceability', 'energy', 
+		'key', 'loudness', 'mode', 'speechiness', 'acousticness', 
+		'instrumentalness', 'liveness', 'valence', 'tempo', 'time_signature'
+	]
+	raw_numeric_cols = [c for c in raw_numeric_cols if c in df_proc_aligned.columns]
+	
+	print(f"// > 正在組裝特徵: PCA ({len(pca_cols)}) + 原始數值 ({len(raw_numeric_cols)})")
+	
+	X_df = pd.concat([
+		df_pca_aligned[pca_cols],
+		df_proc_aligned[raw_numeric_cols]
+	], axis=1)
 	
 	X = X_df.values.astype('float32')
 
@@ -91,6 +130,10 @@ def train_soft_prompt_mlp(df_processed, df_pca, meta_path="data/spotify_meta.pkl
 	model = SoftPromptMLP(input_dim=X.shape[1], output_dim=Y.shape[1]).to(device)
 	criterion = nn.MSELoss()
 	optimizer = optim.Adam(model.parameters(), lr=0.001)
+	
+	# 加入縮減學習率調度器 (Scheduler)
+	# 當 avg_loss 在 5 個 epoch 內沒有下降超過 1e-4 時，將學習率縮減為原來的 0.5 倍
+	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.5)
 
 	# 5. 訓練迴圈
 	print(f"// > 開始訓練 (Device: {device})...")
@@ -111,8 +154,14 @@ def train_soft_prompt_mlp(df_processed, df_pca, meta_path="data/spotify_meta.pkl
 		
 		avg_loss = epoch_loss / len(dataloader)
 		loss_history.append(avg_loss)
+		
+		# 執行學習率調整步驟
+		scheduler.step(avg_loss)
+		
 		if (epoch + 1) % 10 == 0:
-			print(f"   - Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.6f}")
+			# 獲取當前學習率
+			current_lr = optimizer.param_groups[0]['lr']
+			print(f"   - Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.6f}, LR: {current_lr}")
 
 	# 6. 存檔
 	os.makedirs(os.path.dirname(model_save_path) or '.', exist_ok=True)

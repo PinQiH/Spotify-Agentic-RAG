@@ -76,24 +76,35 @@ def get_multi_model_recommendations(target_persona, current_song, persona_summar
 	if not configs:
 		return {}, "找不到任何 API Key，請檢查 .env 檔案。"
 
-	# 1. 準備 Prompt (與舊版一致)
-	prompt = f"""
-你是一位專業的 Spotify 音樂 DJ。請根據以下資訊，從提供的「候選歌曲列表」中，為用戶挑選出最適合的 {n_recommendations} 首歌曲。
+	# 1. 準備精簡後的候選集 (僅保留語義相關字串)
+	compact_candidates = []
+	for c in candidates:
+		compact_candidates.append({
+			"track_id": c.get("track_id"),
+			"track_name": c.get("track_name"),
+			"artists": c.get("artists"),
+			"persona_match_score": round(c.get("persona_match_score", 0), 3),
+			"audio_semantic_description": c.get("rag_doc", "暫無詳細描述")
+		})
 
---- 1. 用戶長期偏好 (Persona: {target_persona}) ---
+	prompt = f"""
+你是一位精通音樂心理學的專業 Spotify DJ。請根據以下資訊，從「候選歌曲列表」中為用戶重排序並挑選出適合的 {n_recommendations} 首歌曲。
+
+--- 1. 用戶畫像中心 (Persona: {target_persona}) ---
 {persona_summary}
 
---- 2. 目前正在播放的歌曲 ---
-{json.dumps(current_song, ensure_ascii=False, indent=2)}
+--- 2. 目前播放背景 ---
+歌曲：{current_song.get('track_name')} - {current_song.get('artists')}
+風格關鍵字：{current_song.get('track_genre')}
 
---- 3. 候選歌曲列表 (包含音訊特徵與 RAG 描述) ---
-{json.dumps(candidates, ensure_ascii=False, indent=2)}
+--- 3. 候選歌曲列表 (請深度分析其內容) ---
+{json.dumps(compact_candidates, ensure_ascii=False, indent=2)}
 
---- 任務要求 ---
-1. 重排序並挑選出適合的歌曲。
-2. 每一首歌附帶一句話推薦理由，並引用某一項特徵 (如 BPM, Energy, Genre)。
-3. 過濾 Explicit 內容。
-4. 必須使用正體中文。
+--- 任務指令 ---
+1. **核心依據**：請優先根據 `audio_semantic_description` (RAG 描述) 與用戶畫像的契合度進行排序。
+2. **參考分數**：`persona_match_score` 代表這首歌與用戶長期品味的語義距離 (1.0 為完美契合)，請將其作為重要參考。
+3. **推薦理由**：請用一句話說明推薦理由，必須引用 `audio_semantic_description` 中的具體特質 (如「音色純淨」、「能量感高」)。
+4. **格式要求**：過濾 Explicit 內容，並使用繁體中文。
 
 請以嚴格的 JSON 格式輸出：
 {{
@@ -102,10 +113,10 @@ def get_multi_model_recommendations(target_persona, current_song, persona_summar
       "track_id": "歌曲 ID",
       "track_name": "歌曲名稱",
       "artists": "演出者",
-      "reason": "推薦理由"
+      "reason": "推薦理由 (必須包含語義分析)"
     }}
   ],
-  "agent_explanation": "推薦策略總結"
+  "agent_explanation": "總體推薦策略摘要"
 }}
 """
 
