@@ -83,28 +83,36 @@ def get_multi_model_recommendations(target_persona, current_song, persona_summar
 			"track_id": c.get("track_id"),
 			"track_name": c.get("track_name"),
 			"artists": c.get("artists"),
+			"current_song_similarity": round(c.get("current_song_similarity", 0), 3),
 			"persona_match_score": round(c.get("persona_match_score", 0), 3),
+			"blended_score": round(c.get("blended_score", 0), 3),
 			"audio_semantic_description": c.get("rag_doc", "暫無詳細描述")
 		})
 
 	prompt = f"""
-你是一位精通音樂心理學的專業 Spotify DJ。請根據以下資訊，從「候選歌曲列表」中為用戶重排序並挑選出適合的 {n_recommendations} 首歌曲。
+你是一位精通音樂心理學的專業 Spotify DJ。請根據以下資訊，從「候選歌曲列表」中為用戶重排序並挑選出最適合的 {n_recommendations} 首歌曲。
 
---- 1. 用戶畫像中心 (Persona: {target_persona}) ---
+--- 1. 用戶畫像 (Persona: {target_persona}) ---
 {persona_summary}
 
---- 2. 目前播放背景 ---
+--- 2. 目前播放的歌曲（最重要的脈絡！）---
 歌曲：{current_song.get('track_name')} - {current_song.get('artists')}
-風格關鍵字：{current_song.get('track_genre')}
+風格：{current_song.get('track_genre')}
+你的推薦必須在風格、情境、或情緒上與這首歌有明確的延續性或對比性。
 
---- 3. 候選歌曲列表 (請深度分析其內容) ---
+--- 3. 候選歌曲列表 ---
 {json.dumps(compact_candidates, ensure_ascii=False, indent=2)}
 
+--- 評分說明 ---
+- `current_song_similarity`：候選歌與「目前播放歌曲」的相似度（1.0 = 完全一致）。**請優先考慮此分數**，確保推薦結果跟目前的歌單情境吻合。
+- `persona_match_score`：候選歌與用戶長期品味的匹配度（1.0 = 完美契合）。請作為次要參考，避免每次都推一樣的歌。
+- `blended_score`：系統預先計算的混合分數（60% 當前相似度 + 40% 品味匹配），可作為初始排序參考，但你可以根據 RAG 描述做主觀調整。
+
 --- 任務指令 ---
-1. **核心依據**：請優先根據 `audio_semantic_description` (RAG 描述) 與用戶畫像的契合度進行排序。
-2. **參考分數**：`persona_match_score` 代表這首歌與用戶長期品味的語義距離 (1.0 為完美契合)，請將其作為重要參考。
-3. **推薦理由**：請用一句話說明推薦理由，必須引用 `audio_semantic_description` 中的具體特質 (如「音色純淨」、「能量感高」)。
-4. **格式要求**：過濾 Explicit 內容，並使用繁體中文。
+1. **情境優先**：推薦清單的整體氛圍必須與「目前播放歌曲」相符。不同的歌曲選擇應帶出不同的推薦結果。
+2. **品味過濾**：從情境相符的歌中，再用 `persona_match_score` 篩掉不符合用戶個性的歌。
+3. **推薦理由**：每首歌用一句話說明，需同時提及「與當前歌曲的關聯」和「用戶畫像的契合點」。
+4. **格式要求**：過濾 Explicit 內容，使用繁體中文。
 
 請以嚴格的 JSON 格式輸出：
 {{
@@ -113,10 +121,10 @@ def get_multi_model_recommendations(target_persona, current_song, persona_summar
       "track_id": "歌曲 ID",
       "track_name": "歌曲名稱",
       "artists": "演出者",
-      "reason": "推薦理由 (必須包含語義分析)"
+      "reason": "推薦理由（說明與當前歌曲的關聯 + 符合用戶品味之處）"
     }}
   ],
-  "agent_explanation": "總體推薦策略摘要"
+  "agent_explanation": "本次推薦策略摘要（說明你如何平衡當前情境與用戶品味）"
 }}
 """
 
