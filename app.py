@@ -96,7 +96,11 @@ st.markdown("""
 
 @st.cache_data
 def load_data():
-	return pd.read_csv("data/songs.csv") if os.path.exists("data/songs.csv") else None
+	if not os.path.exists("data/songs.csv"):
+		return None
+	df = pd.read_csv("data/songs.csv")
+	# > 資料去重：防止重複的 track_id 導致 UI 崩潰 (DuplicateWidgetID)
+	return df.drop_duplicates(subset='track_id').reset_index(drop=True)
 
 @st.cache_data
 def load_pca_data():
@@ -299,10 +303,12 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, index, st_mod
 		cols = st.columns(3)
 		batch = current_page_songs[i:i+3]
 		for idx, m in enumerate(batch):
+			global_idx = start_idx + i + idx # 計算全域索引作為 Key 的一部分
 			with cols[idx]:
 				# 每首歌一個播放器 + 一個選擇按鈕
 				spotify_embed(m['track_id'], height=152)
-				if st.button("▶", key=f"sel_grid_{m['track_id']}"):
+				# @ 使用全域索引 + track_id 確保 Key 絕對唯一
+				if st.button("▶", key=f"sel_grid_{m['track_id']}_{global_idx}"):
 					st.session_state.selected_song_id = m['track_id']
 					st.session_state.current_selected_meta = m
 					st.session_state.analysis_done = True
