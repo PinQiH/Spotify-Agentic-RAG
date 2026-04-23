@@ -10,8 +10,8 @@ def get_persona_soft_prompt(persona_name, soft_prompts_map, history_dir="data/pe
 	"""
 	獲取特定 Persona 的代表性語義向量 (Soft Prompt)。
 	"""
-	# 1. 格式化檔名 (例如 "Chill Vibes" -> "chill_vibes_history.json")
-	filename = persona_name.lower().replace(" ", "_") + "_history.json"
+	# 1. 格式化檔名 (保持大小寫一致以修復 Linux 環境報錯)
+	filename = persona_name.replace(" ", "_") + "_history.json"
 	filepath = os.path.join(history_dir, filename)
 	
 	if not os.path.exists(filepath):
