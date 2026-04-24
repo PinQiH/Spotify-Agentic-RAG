@@ -388,49 +388,46 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, index, st_mod
 				st.warning("No soft prompt vector found.")
 			status.update(label="Step 2: OK", state="complete")
 
-		# --- [NEW] Refinement: Deduplication & Scoring (跟 Notebook 一模一樣) ---
-		with st.status("[精煉中：去重與風格打分]", expanded=False) as status:
-			# 1. 建立去重清單
+		# --- [NEW] Refinement: Deduplication & Scoring (Same as Notebook) ---
+		with st.status("[Refining: Deduplication & Scoring]", expanded=False) as status:
+			# 1. Initialize lookup
 			all_candidates_dict = {}
 
-			# 1.1 整合數值檢索 (Step 1)
+			# 1.1 Integrate Step 1 results
 			for c in step1_candidates:
 				tid = c['track_id']
-				# @ 剔除跟當前播放歌曲一模一樣的項目
+				# @ Skip current song to maintain diversity
 				if tid == current_song_id:
 					continue
 					
-				# 確保查表資料完整 (使用全量 df_songs)
 				rows = df_songs[df_songs['track_id'] == tid]
 				if not rows.empty:
 					all_candidates_dict[tid] = rows.iloc[0].to_dict()
 
-			# 1.2 整合語義檢索 (Step 2)
+			# 1.2 Integrate Step 2 results
 			for c in semantic_raw_cands:
 				tid = c['track_id']
-				# @ 剔除跟當前播放歌曲一模一樣的項目
+				# @ Skip current song to maintain diversity
 				if tid == current_song_id:
 					continue
 				all_candidates_dict[tid] = c
 
-			# 2. 計算雙軸語義匹配度
+			# 2. Calculate Dual-Axis Semantic Scores
 			persona_vec = get_persona_soft_prompt(p_name, soft_prompts_map)
-			# 取得「目前歌曲」的軟提示向量，用於計算「與當前歌曲的相似度」
 			current_song_vec = soft_prompts_map.get(current_song_id)
 			final_candidate_list = []
 
 			for tid, meta in all_candidates_dict.items():
-				# [補全邏輯] 如果沒有預先生成的 RAG 描述，則動態現場生成一段
+				# [Auto-fill] Dynamic RAG generation if missing
 				if 'rag_doc' not in meta or pd.isna(meta['rag_doc']) or meta['rag_doc'] == "" or meta['rag_doc'] == "nan":
 					meta['rag_doc'] = generate_dynamic_rag_doc(meta)
-					meta['is_dynamic_rag'] = True # 標註為動態生成，方便除錯
+					meta['is_dynamic_rag'] = True
 
 				if tid in soft_prompts_map:
 					cand_vec = soft_prompts_map[tid]
 					persona_score = calculate_cosine_similarity(persona_vec, cand_vec)
-					# 計算候選歌與「目前選的歌」的相似度（讓推薦結果跟著選歌改變）
 					song_score = calculate_cosine_similarity(current_song_vec, cand_vec) if current_song_vec is not None else 0.0
-					# 混合分數：40% 個人品味 + 60% 與當前歌曲相似度
+					# 40% Persona + 60% Context (Context-aware ranking)
 					blended_score = 0.4 * persona_score + 0.6 * song_score
 
 					meta_with_score = meta.copy()
@@ -438,16 +435,15 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, index, st_mod
 					meta_with_score['current_song_similarity'] = round(float(song_score), 3)
 					meta_with_score['blended_score'] = round(float(blended_score), 3)
 
-					# 標記來源
 					is_s = any(sc['track_id'] == tid for sc in semantic_raw_cands)
 					meta_with_score['retrieval_source'] = "Semantic" if is_s else "Numerical"
 					final_candidate_list.append(meta_with_score)
 
-			# 用混合分數排序，確保候選集已反映當前選歌
+			# Sort by blended score
 			final_candidate_list.sort(key=lambda x: x.get('blended_score', 0), reverse=True)
 
-			st.write(f"✅ 已精煉 {len(final_candidate_list)} 首唯一候選曲目 (已剔除目前播放歌曲與重複項)。")
-			status.update(label="同步與精煉：已完成", state="complete")
+			st.write(f"✅ Refined {len(final_candidate_list)} unique candidates (Current song & duplicates excluded).")
+			status.update(label="Sync & Refinement: Completed", state="complete")
 
 		# --- Step 3: Agentic Re-ranking ---
 		with st.status("[STEP 3: Multi-Model Agent Inference]", expanded=True) as status:
