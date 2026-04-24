@@ -35,14 +35,24 @@ def batch_generate_soft_prompts(df_processed, df_pca, model_path="data/soft_prom
 	print(f"// > 正在提取特徵: PCA ({len(pca_cols)}) + 原始數值 ({len(raw_numeric_cols)})")
 	
 	# 對齊 df_pca 與 df_processed (確保筆順一致)
-	# 這裡我們以 df_pca 為基準進行拼接
-	df_combined = pd.concat([
-		df_pca.set_index('track_id')[pca_cols],
-		df_processed.set_index('track_id')[raw_numeric_cols]
-	], axis=1).reset_index()
+	# @ 優先去重，防止 InvalidIndexError
+	df_pca_clean = df_pca.drop_duplicates(subset=['track_id'])
+	df_proc_clean = df_processed.drop_duplicates(subset=['track_id'])
+	
+	df_pca_subset = df_pca_clean.set_index('track_id')[pca_cols]
+	df_proc_subset = df_proc_clean.set_index('track_id')[raw_numeric_cols]
+	
+	df_combined = pd.concat([df_pca_subset, df_proc_subset], axis=1, join='inner').reset_index()
 
 	track_ids = df_combined['track_id'].values
-	X_values = df_combined.drop(columns=['track_id']).values.astype('float32')
+	# @ 確保只選取特徵列進行轉換
+	feature_cols = pca_cols + raw_numeric_cols
+	X_values = df_combined[feature_cols].values.astype('float32')
+	
+	print(f"// > 特徵矩陣已備妥: {X_values.shape}, NaN 數量: {np.isnan(X_values).sum()}")
+	# 若有 NaN 則填 0
+	if np.isnan(X_values).any():
+		X_values = np.nan_to_num(X_values)
 
 	# --- 維度驗證 (嚴格對齊) ---
 	expected_dim = next(model.parameters()).size(1)
@@ -56,8 +66,18 @@ def batch_generate_soft_prompts(df_processed, df_pca, model_path="data/soft_prom
 
 	# 3. 執行 Inference (Inference 不需梯度)
 	print("// > 正在進行批次預測 (Inference)...")
+	# @ 加入 Scaler 處理
+	scaler_path = "data/feature_scaler.pkl"
+	if os.path.exists(scaler_path):
+		print(f"// > 載入特徵 Scaler: {scaler_path}")
+		with open(scaler_path, "rb") as f:
+			scaler = pickle.load(f)
+		X_values = scaler.transform(X_values)
+	else:
+		print("// !! 找不到 Scaler，將直接使用原始數值 (不建議)")
+
 	with torch.no_grad():
-		X_tensor = torch.tensor(X_values)
+		X_tensor = torch.tensor(X_values.astype('float32'))
 		pred_embeddings = model(X_tensor).numpy()
 
 	# 4. 建立 Dictionary

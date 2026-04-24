@@ -11,10 +11,11 @@ import tempfile
 import numpy as np
 import plotly.io as pio
 import torch
+from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import streamlit.components.v1 as components
 import concurrent.futures
-from scripts.train_mlp import SoftPromptMLP
+from scripts.train_mlp import SoftPromptMLP, SoftPromptMLPV2, load_soft_prompt_mlp
 from scripts.recommender_agent import get_multi_model_recommendations, calculate_cosine_similarity
 from scripts.get_persona_prompt import get_persona_soft_prompt
 from scripts.dynamic_rag import generate_dynamic_rag_doc
@@ -157,14 +158,7 @@ def load_faiss_resources():
 	
 	# 載入微調過的 MLP 模型 (用於特徵轉向量)
 	mlp_path = "data/soft_prompt_mlp_finetuned.pth"
-	mlp_model = None
-	if os.path.exists(mlp_path):
-		checkpoint = torch.load(mlp_path, map_location=torch.device('cpu'))
-		# 自動取得模型維度 (支持舊版 17 或新版 33)
-		input_dim = checkpoint.get('input_dim', 33) 
-		mlp_model = SoftPromptMLP(input_dim, checkpoint['output_dim'])
-		mlp_model.load_state_dict(checkpoint['model_state_dict'])
-		mlp_model.eval()
+	mlp_model, _ = load_soft_prompt_mlp(mlp_path)
 	
 	# 加載與 FAISS Index 嚴格對齊的元數據 (2,000筆標竿歌)
 	faiss_meta_path = os.path.join(DATA_DIR, "spotify_faiss_meta.pkl")
