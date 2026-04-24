@@ -389,13 +389,17 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, index, st_mod
 			status.update(label="Step 2: OK", state="complete")
 
 		# --- [NEW] Refinement: Deduplication & Scoring (跟 Notebook 一模一樣) ---
-		with st.status("[INTEGRATION: Deduplication & Scoring]", expanded=False) as status:
+		with st.status("[精煉中：去重與風格打分]", expanded=False) as status:
 			# 1. 建立去重清單
 			all_candidates_dict = {}
 
 			# 1.1 整合數值檢索 (Step 1)
 			for c in step1_candidates:
 				tid = c['track_id']
+				# @ 剔除跟當前播放歌曲一模一樣的項目
+				if tid == current_song_id:
+					continue
+					
 				# 確保查表資料完整 (使用全量 df_songs)
 				rows = df_songs[df_songs['track_id'] == tid]
 				if not rows.empty:
@@ -403,7 +407,11 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, index, st_mod
 
 			# 1.2 整合語義檢索 (Step 2)
 			for c in semantic_raw_cands:
-				all_candidates_dict[c['track_id']] = c
+				tid = c['track_id']
+				# @ 剔除跟當前播放歌曲一模一樣的項目
+				if tid == current_song_id:
+					continue
+				all_candidates_dict[tid] = c
 
 			# 2. 計算雙軸語義匹配度
 			persona_vec = get_persona_soft_prompt(p_name, soft_prompts_map)
@@ -438,8 +446,8 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, index, st_mod
 			# 用混合分數排序，確保候選集已反映當前選歌
 			final_candidate_list.sort(key=lambda x: x.get('blended_score', 0), reverse=True)
 
-			st.write(f"✅ Refined {len(final_candidate_list)} unique candidates with taste-scores.")
-			status.update(label="Sync: Completed", state="complete")
+			st.write(f"✅ 已精煉 {len(final_candidate_list)} 首唯一候選曲目 (已剔除目前播放歌曲與重複項)。")
+			status.update(label="同步與精煉：已完成", state="complete")
 
 		# --- Step 3: Agentic Re-ranking ---
 		with st.status("[STEP 3: Multi-Model Agent Inference]", expanded=True) as status:
