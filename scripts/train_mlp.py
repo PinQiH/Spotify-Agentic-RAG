@@ -93,7 +93,7 @@ def train_soft_prompt_mlp(df_processed, df_pca, meta_path="data/spotify_meta.pkl
 	from sentence_transformers import SentenceTransformer
 	print("// > 重新計算訓練目標 (Y: Embeddings)...")
 	model_st = SentenceTransformer('all-MiniLM-L6-v2')
-	texts = [f"{row['track_name']} {row['artists']} {row['track_genre']}" for row in metadata]
+	texts = [str(row.get('rag_doc') or f"{row['track_name']} {row['artists']} {row['track_genre']}") for row in metadata]
 	Y = model_st.encode(texts)
 	Y = np.array(Y).astype('float32')
 
@@ -122,7 +122,7 @@ def train_soft_prompt_mlp(df_processed, df_pca, meta_path="data/spotify_meta.pkl
 	
 	# 建立 ID 到 Metadata 的映射，快速取得文字描述
 	id_to_meta = {str(m['track_id']): m for m in metadata}
-	texts = [f"{id_to_meta[tid]['track_name']} {id_to_meta[tid]['artists']} {id_to_meta[tid]['track_genre']}" for tid in valid_ids]
+	texts = [str(id_to_meta[tid].get('rag_doc') or f"{id_to_meta[tid]['track_name']} {id_to_meta[tid]['artists']} {id_to_meta[tid]['track_genre']}") for tid in valid_ids]
 	Y = model_st.encode(texts)
 	Y = np.array(Y).astype('float32')
 

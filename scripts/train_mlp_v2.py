@@ -82,7 +82,7 @@ def train_new_model():
 	print("   - 正在計算訓練目標 Embeddings (Y)...")
 	st_model = SentenceTransformer('all-MiniLM-L6-v2')
 	id_to_meta = {str(m['track_id']): m for m in metadata}
-	texts = [f"{id_to_meta[tid]['track_name']} {id_to_meta[tid]['artists']}" for tid in valid_ids]
+	texts = [str(id_to_meta[tid].get('rag_doc') or f"{id_to_meta[tid]['track_name']} {id_to_meta[tid]['artists']}") for tid in valid_ids]
 	Y = st_model.encode(texts).astype('float32')
 	
 	# 5. 訓練
