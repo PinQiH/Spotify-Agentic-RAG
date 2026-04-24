@@ -11,10 +11,11 @@ import tempfile
 import numpy as np
 import plotly.io as pio
 import torch
+from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import streamlit.components.v1 as components
 import concurrent.futures
-from scripts.train_mlp import SoftPromptMLP
+from scripts.train_mlp import SoftPromptMLP, SoftPromptMLPV2, load_soft_prompt_mlp
 from scripts.recommender_agent import get_multi_model_recommendations, calculate_cosine_similarity
 from scripts.get_persona_prompt import get_persona_soft_prompt
 from scripts.dynamic_rag import generate_dynamic_rag_doc
@@ -157,14 +158,7 @@ def load_faiss_resources():
 	
 	# 載入微調過的 MLP 模型 (用於特徵轉向量)
 	mlp_path = "data/soft_prompt_mlp_finetuned.pth"
-	mlp_model = None
-	if os.path.exists(mlp_path):
-		checkpoint = torch.load(mlp_path, map_location=torch.device('cpu'))
-		# 自動取得模型維度 (支持舊版 17 或新版 33)
-		input_dim = checkpoint.get('input_dim', 33) 
-		mlp_model = SoftPromptMLP(input_dim, checkpoint['output_dim'])
-		mlp_model.load_state_dict(checkpoint['model_state_dict'])
-		mlp_model.eval()
+	mlp_model, _ = load_soft_prompt_mlp(mlp_path)
 	
 	# 加載與 FAISS Index 嚴格對齊的元數據 (2,000筆標竿歌)
 	faiss_meta_path = os.path.join(DATA_DIR, "spotify_faiss_meta.pkl")
@@ -411,26 +405,39 @@ def render_main_app(df_songs, df_pca, personas, persona_summaries, index, st_mod
 			for c in semantic_raw_cands:
 				all_candidates_dict[c['track_id']] = c
 
-			# 2. 計算與 Persona 的語義匹配度
+			# 2. 計算雙軸語義匹配度
 			persona_vec = get_persona_soft_prompt(p_name, soft_prompts_map)
+			# 取得「目前歌曲」的軟提示向量，用於計算「與當前歌曲的相似度」
+			current_song_vec = soft_prompts_map.get(current_song_id)
 			final_candidate_list = []
-			
+
 			for tid, meta in all_candidates_dict.items():
 				# [補全邏輯] 如果沒有預先生成的 RAG 描述，則動態現場生成一段
 				if 'rag_doc' not in meta or pd.isna(meta['rag_doc']) or meta['rag_doc'] == "" or meta['rag_doc'] == "nan":
 					meta['rag_doc'] = generate_dynamic_rag_doc(meta)
 					meta['is_dynamic_rag'] = True # 標註為動態生成，方便除錯
-				
+
 				if tid in soft_prompts_map:
-					sim_score = calculate_cosine_similarity(persona_vec, soft_prompts_map[tid])
+					cand_vec = soft_prompts_map[tid]
+					persona_score = calculate_cosine_similarity(persona_vec, cand_vec)
+					# 計算候選歌與「目前選的歌」的相似度（讓推薦結果跟著選歌改變）
+					song_score = calculate_cosine_similarity(current_song_vec, cand_vec) if current_song_vec is not None else 0.0
+					# 混合分數：40% 個人品味 + 60% 與當前歌曲相似度
+					blended_score = 0.4 * persona_score + 0.6 * song_score
+
 					meta_with_score = meta.copy()
-					meta_with_score['persona_match_score'] = float(sim_score)
-					
+					meta_with_score['persona_match_score'] = round(float(persona_score), 3)
+					meta_with_score['current_song_similarity'] = round(float(song_score), 3)
+					meta_with_score['blended_score'] = round(float(blended_score), 3)
+
 					# 標記來源
 					is_s = any(sc['track_id'] == tid for sc in semantic_raw_cands)
 					meta_with_score['retrieval_source'] = "Semantic" if is_s else "Numerical"
 					final_candidate_list.append(meta_with_score)
-			
+
+			# 用混合分數排序，確保候選集已反映當前選歌
+			final_candidate_list.sort(key=lambda x: x.get('blended_score', 0), reverse=True)
+
 			st.write(f"✅ Refined {len(final_candidate_list)} unique candidates with taste-scores.")
 			status.update(label="Sync: Completed", state="complete")
 

@@ -25,14 +25,44 @@ class SoftPromptMLP(nn.Module):
     def forward(self, x):
         return self.network(x)
 
+# > MLP V2: 加入 BatchNormalization 與 Robust Scaling (全新健全架構)
+class SoftPromptMLPV2(nn.Module):
+    def __init__(self, input_dim, output_dim=384):
+        super(SoftPromptMLPV2, self).__init__()
+        self.network = nn.Sequential(
+            nn.Linear(input_dim, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            
+            nn.Linear(256, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            
+            nn.Linear(512, output_dim)
+        )
+    
+    def forward(self, x):
+        return self.network(x)
+
 # > 載入模型函式
 def load_soft_prompt_mlp(model_path="data/soft_prompt_mlp.pth"):
-    """載入現有的模型權重與訓練紀錄"""
+    """載入現有的模型權重與訓練紀錄，自動辨識 V1 或 V2"""
     if not os.path.exists(model_path):
         return None, None
     
-    checkpoint = torch.load(model_path)
-    model = SoftPromptMLP(input_dim=checkpoint['input_dim'], output_dim=checkpoint['output_dim'])
+    checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
+    model_type = checkpoint.get('model_type', 'v1')
+    
+    input_dim = checkpoint['input_dim']
+    output_dim = checkpoint['output_dim']
+    
+    if model_type == 'v2_robust':
+        model = SoftPromptMLPV2(input_dim=input_dim, output_dim=output_dim)
+    else:
+        model = SoftPromptMLP(input_dim=input_dim, output_dim=output_dim)
+        
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     return model, checkpoint.get('loss_history', [])
